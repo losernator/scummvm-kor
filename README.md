@@ -1,7 +1,7 @@
 # ScummVM-kor libretro Core
 
 [ScummVM](http://scummvm.org) is an interpreter for point-and-click adventure games that can be used as a libretro core.
->1.9.0(2016-10-17)을 기반으로 ScummVM kor.에 있는 한국어 출력 기능을 추가해서 수정/변환한 버전입니다.
+>1.9.0(2016-10-17)을 기반으로 ScummVM kor.에 있는 한국어 출력 기능을 추가해서 수정/변환한 버전입니다. [누리돌님의 소스코드](https://github.com/nuridol/scummvm-kor)를 적용하였습니다.
 
 ## Compiling
 

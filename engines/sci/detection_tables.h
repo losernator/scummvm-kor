@@ -4365,6 +4365,17 @@ static const struct ADGameDescription SciGameDescriptions[] = {
 		AD_LISTEND},
 		Common::EN_ANY, Common::kPlatformWindows, ADGF_CD, GUIO5(GUIO_MIDIGM, GAMEOPTION_SQ4_SILVER_CURSORS, GAMEOPTION_PREFER_DIGITAL_SFX, GAMEOPTION_ORIGINAL_SAVELOAD, GAMEOPTION_FB01_MIDI)	},
 
+#ifdef SCUMMVMKOR
+	// Space Quest 4 - Korean DOS CD (from the Space Quest Collection)
+	// Executable scanning reports "1.001.064", VERSION file reports "1.0"
+	{"sq4", "", {
+		{"resource.map", 0, "ed90a8e3ccc53af6633ff6ab58392bae", 7054},
+		{"resource.000", 0, "63247e3901ab8963d4eece73747832e0", 5157378},
+		{"resource.msg", 0, "6ca82305ba1f8ac1cebdd20427168106", 561801},
+		AD_LISTEND},
+		Common::KO_KOR, Common::kPlatformDOS, ADGF_CD, GUIO4(GAMEOPTION_SQ4_SILVER_CURSORS, GAMEOPTION_PREFER_DIGITAL_SFX, GAMEOPTION_ORIGINAL_SAVELOAD, GAMEOPTION_FB01_MIDI)	},
+#endif
+
 	// Space Quest 4 - English DOS CD patch 1.2 (unofficial - NRS) - THIS VERSION IS PIRATED/CRACKED AND REPACKAGED =DO NOT RE-ADD=
 	// In essence, this "patch" includes a mixture the CD and floppy versions (the whole game), without the speech file
 	{"sq4", "CD", {

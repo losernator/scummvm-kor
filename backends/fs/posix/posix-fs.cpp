@@ -20,6 +20,8 @@
  *
  */
 
+#if defined(POSIX) || defined(PLAYSTATION3) || defined(__LIBRETRO__)
+
 // Re-enable some forbidden symbols to avoid clashes with stat.h and unistd.h.
 // Also with clock() in sys/time.h in some Mac OS X SDKs.
 #define FORBIDDEN_SYMBOL_EXCEPTION_time_h
@@ -32,43 +34,81 @@
 #include "backends/fs/stdiostream.h"
 #include "common/algorithm.h"
 
+#if defined(__LIBRETRO__)
 #include "../../platform/libretro/libretro-common/include/retro_dirent.h"
 #include "../../platform/libretro/libretro-common/include/retro_stat.h"
 #include "../../platform/libretro/libretro-common/include/file/file_path.h"
+#else
+#include <sys/param.h>
+#include <sys/stat.h>
+#include <dirent.h>
+#endif
 #include <stdio.h>
 #include <errno.h>
 #include <fcntl.h>
 
-void POSIXFilesystemNode::setFlags()
-{
+#ifdef __OS2__
+#define INCL_DOS
+#include <os2.h>
+#endif
+
+
+void POSIXFilesystemNode::setFlags() {
+#if defined(__LIBRETRO__)
    const char *fspath = _path.c_str();
 
    _isValid     = path_is_valid(fspath);
    _isDirectory = path_is_directory(fspath);
+#else
+	struct stat st;
+
+	_isValid = (0 == stat(_path.c_str(), &st));
+	_isDirectory = _isValid ? S_ISDIR(st.st_mode) : false;
+#endif
 }
 
-POSIXFilesystemNode::POSIXFilesystemNode(const Common::String &p)
-{
+POSIXFilesystemNode::POSIXFilesystemNode(const Common::String &p) {
 	assert(p.size() > 0);
 
 	// Expand "~/" to the value of the HOME env variable
-	if (p.hasPrefix("~/"))
-   {
+	if (p.hasPrefix("~/")) {
 		const char *home = getenv("HOME");
-		if (home != NULL && strlen(home) < MAXPATHLEN)
-      {
+		if (home != NULL && strlen(home) < MAXPATHLEN) {
 			_path = home;
 			// Skip over the tilda.  We know that p contains at least
 			// two chars, so this is safe:
 			_path += p.c_str() + 1;
 		}
-	}
-   else
+	} else {
 		_path = p;
+	}
 
+#ifdef __OS2__
+	// On OS/2, 'X:/' is a root of drive X, so we should not remove that last
+	// slash.
+	if (!(_path.size() == 3 && _path.hasSuffix(":/")))
+#endif
 	// Normalize the path (that is, remove unneeded slashes etc.)
 	_path = Common::normalizePath(_path, '/');
 	_displayName = Common::lastPathComponent(_path, '/');
+
+	// TODO: should we turn relative paths into absolute ones?
+	// Pro: Ensures the "getParent" works correctly even for relative dirs.
+	// Contra: The user may wish to use (and keep!) relative paths in his
+	//   config file, and converting relative to absolute paths may hurt him...
+	//
+	// An alternative approach would be to change getParent() to work correctly
+	// if "_path" is the empty string.
+#if 0
+	if (!_path.hasPrefix("/")) {
+		char buf[MAXPATHLEN+1];
+		getcwd(buf, MAXPATHLEN);
+		strcat(buf, "/");
+		_path = buf + _path;
+	}
+#endif
+	// TODO: Should we enforce that the path is absolute at this point?
+	//assert(_path.hasPrefix("/"));
 
 	setFlags();
 }
@@ -95,10 +135,40 @@ bool POSIXFilesystemNode::getChildren(AbstractFSList &myList, ListMode mode, boo
 
 	struct RDIR *dirp = retro_opendir(_path.c_str());
 
+		DosQueryCurrentDisk(&ulDrvNum, &ulDrvMap);
+
+		for (int i = 0; i < 26; i++) {
+			if (ulDrvMap & 1) {
+				char drive_root[] = "A:/";
+				drive_root[0] += i;
+
+                POSIXFilesystemNode *entry = new POSIXFilesystemNode();
+				entry->_isDirectory = true;
+				entry->_isValid = true;
+				entry->_path = drive_root;
+				entry->_displayName = "[" + Common::String(drive_root, 2) + "]";
+				myList.push_back(entry);
+			}
+
+			ulDrvMap >>= 1;
+		}
+
+		return true;
+	}
+#endif
+
+#if defined(__LIBRETRO__)
+	struct RDIR *dirp = retro_opendir(_path.c_str());
+#else
+	DIR *dirp = opendir(_path.c_str());
+	struct dirent *dp;
+#endif
+
 	if (dirp == NULL)
 		return false;
 
 	// loop over dir entries using readdir
+#if defined(__LIBRETRO__)
 	while ((retro_readdir(dirp)))
    {
       const char *d_name = retro_dirent_get_name(dirp);
@@ -120,6 +190,52 @@ bool POSIXFilesystemNode::getChildren(AbstractFSList &myList, ListMode mode, boo
 
       entry._isValid     = true;
       entry._isDirectory = retro_dirent_is_dir(dirp, entry._path.c_str());
+#else
+	while ((dp = readdir(dirp)) != NULL) {
+		// Skip 'invisible' files if necessary
+		if (dp->d_name[0] == '.' && !hidden) {
+			continue;
+		}
+		// Skip '.' and '..' to avoid cycles
+		if ((dp->d_name[0] == '.' && dp->d_name[1] == 0) || (dp->d_name[0] == '.' && dp->d_name[1] == '.')) {
+			continue;
+		}
+
+		// Start with a clone of this node, with the correct path set
+		POSIXFilesystemNode entry(*this);
+		entry._displayName = dp->d_name;
+		if (_path.lastChar() != '/')
+			entry._path += '/';
+		entry._path += entry._displayName;
+
+#if defined(SYSTEM_NOT_SUPPORTING_D_TYPE)
+		/* TODO: d_type is not part of POSIX, so it might not be supported
+		 * on some of our targets. For those systems where it isn't supported,
+		 * add this #elif case, which tries to use stat() instead.
+		 *
+		 * The d_type method is used to avoid costly recurrent stat() calls in big
+		 * directories.
+		 */
+		entry.setFlags();
+#else
+		if (dp->d_type == DT_UNKNOWN) {
+			// Fall back to stat()
+			entry.setFlags();
+		} else {
+			entry._isValid = (dp->d_type == DT_DIR) || (dp->d_type == DT_REG) || (dp->d_type == DT_LNK);
+			if (dp->d_type == DT_LNK) {
+				struct stat st;
+				if (stat(entry._path.c_str(), &st) == 0)
+					entry._isDirectory = S_ISDIR(st.st_mode);
+				else
+					entry._isDirectory = false;
+			} else {
+				entry._isDirectory = (dp->d_type == DT_DIR);
+			}
+		}
+#endif
+#endif
+
 
       // Skip files that are invalid for some reason (e.g. because we couldn't
       // properly stat them).
@@ -133,15 +249,24 @@ bool POSIXFilesystemNode::getChildren(AbstractFSList &myList, ListMode mode, boo
 
       myList.push_back(new POSIXFilesystemNode(entry));
    }
+#if defined(__LIBRETRO__)
 	retro_closedir(dirp);
+#else
+	closedir(dirp);
+#endif
 
 	return true;
 }
 
-AbstractFSNode *POSIXFilesystemNode::getParent() const
-{
+AbstractFSNode *POSIXFilesystemNode::getParent() const {
 	if (_path == "/")
 		return 0;	// The filesystem root has no parent
+
+#ifdef __OS2__
+    if (_path.size() == 3 && _path.hasSuffix(":/"))
+        // This is a root directory of a drive
+        return makeNode("/");   // return a virtual root for a list of drives
+#endif
 
 	const char *start = _path.c_str();
 	const char *end = start + _path.size();
@@ -151,8 +276,13 @@ AbstractFSNode *POSIXFilesystemNode::getParent() const
 	while (end > start && *(end-1) != '/')
 		end--;
 
-	if (end == start)
+	if (end == start) {
+		// This only happens if we were called with a relative path, for which
+		// there simply is no parent.
+		// TODO: We could also resolve this by assuming that the parent is the
+		//       current working directory, and returning a node referring to that.
 		return 0;
+	}
 
 	return makeNode(Common::String(start, end));
 }
@@ -169,7 +299,11 @@ bool POSIXFilesystemNode::create(bool isDir) {
 	bool success;
 
 	if (isDir) {
+#if defined(__LIBRETRO__)
 		success = mkdir_norecurse(_path.c_str());
+#else
+		success = mkdir(_path.c_str(), 0755) == 0;
+#endif
 	} else {
 		int fd = open(_path.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0755);
 		success = fd >= 0;
@@ -197,6 +331,7 @@ bool POSIXFilesystemNode::create(bool isDir) {
 namespace Posix {
 
 bool assureDirectoryExists(const Common::String &dir, const char *prefix) {
+#if defined(__LIBRETRO__)
 	// Check whether the prefix exists if one is supplied.
 	if (prefix)
    {
@@ -205,6 +340,18 @@ bool assureDirectoryExists(const Common::String &dir, const char *prefix) {
 		else if (!path_is_directory(prefix))
 			return false;
 	}
+#else
+	struct stat sb;
+
+	// Check whether the prefix exists if one is supplied.
+	if (prefix) {
+		if (stat(prefix, &sb) != 0) {
+			return false;
+		} else if (!S_ISDIR(sb.st_mode)) {
+			return false;
+		}
+	}
+#endif
 
 	// Obtain absolute path.
 	Common::String path;
@@ -225,8 +372,9 @@ bool assureDirectoryExists(const Common::String &dir, const char *prefix) {
 
 	do {
 		if (cur + 1 != end) {
-			if (*cur != '/')
+			if (*cur != '/') {
 				continue;
+			}
 
 			// It is kind of ugly and against the purpose of Common::String to
 			// insert 0s inside, but this is just for a local string and
@@ -234,6 +382,7 @@ bool assureDirectoryExists(const Common::String &dir, const char *prefix) {
 			*cur = '\0';
 		}
 
+#if defined(__LIBRETRO__)
 		if (!mkdir_norecurse(path.c_str()))
       {
          if (errno == EEXIST)
@@ -246,6 +395,19 @@ bool assureDirectoryExists(const Common::String &dir, const char *prefix) {
          else
             return false;
       }
+#else
+		if (mkdir(path.c_str(), 0755) != 0) {
+			if (errno == EEXIST) {
+				if (stat(path.c_str(), &sb) != 0) {
+					return false;
+				} else if (!S_ISDIR(sb.st_mode)) {
+					return false;
+				}
+			} else {
+				return false;
+			}
+		}
+#endif
 
 		*cur = '/';
 	} while (cur++ != end);
@@ -254,3 +416,5 @@ bool assureDirectoryExists(const Common::String &dir, const char *prefix) {
 }
 
 } // End of namespace Posix
+
+#endif //#if defined(POSIX)

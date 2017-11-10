@@ -77,11 +77,8 @@ void GfxFontKorean::draw(uint16 chr, int16 top, int16 left, byte color, bool gre
 
 #ifdef ENABLE_SCI32
 void GfxFontKorean::drawToBuffer(uint16 chr, int16 top, int16 left, byte color, bool greyedOutput, byte *buffer, int16 bufWidth, int16 bufHeight) {
-	//byte *displayPtr = buffer + top * bufWidth * 2 + left * 2;
 	byte *displayPtr = buffer + top * bufWidth + left;
 	// we don't use outline, so color 0 is actually not used
-	//warning("drawToBuffer: chr=%04x\n", chr);
-	//_commonFont->drawChar(displayPtr, chr, bufWidth, 1, color, 0, -1, -1);
 	_commonFont->drawChar(displayPtr, chr, bufWidth, 1, color, 0, bufWidth - left, bufHeight - top);
 }
 

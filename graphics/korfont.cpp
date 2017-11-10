@@ -451,10 +451,6 @@ bool FontKoreanSVM::loadData(const char *fontFile) {
 		assert(_fontData16x16);
 		data->read(_fontData16x16, _fontData16x16Size);
 
-		//_fontData8x16Size = numChars8x16 * 32;
-		//_fontData8x16 = new uint8[numChars8x16 * 32];
-		//assert(_fontData8x16);
-		//data->read(_fontData8x16, _fontData8x16Size);
 		_fontData8x16Size = numChars8x16 * 16;
 		_fontData8x16 = new uint8[numChars8x16 * 16];
 		assert(_fontData8x16);
@@ -476,7 +472,6 @@ bool FontKoreanSVM::loadData(const char *fontFile) {
 }
 
 const uint8 *FontKoreanSVM::getCharData(uint16 c) const {
-	//warning("FontKoreanSVM::getCharData");
 	if (_fontWidth == 8)
 		return getCharDataPCE(c);
 	else
@@ -509,9 +504,7 @@ const uint8 *FontKoreanSVM::getCharDataPCE(uint16 c) const {
 
 const uint8 *FontKoreanSVM::getCharDataDefault(uint16 c) const {
 	if (isASCII(c)) {
-		//const uint offset = c * 32;
 		const uint offset = c * 16;
-		//warning("getCharDataDefault: ascii c=%02x, offset=%d, size=%d", c, offset, _fontData8x16Size);
 		assert(offset <= _fontData8x16Size);
 		return _fontData8x16 + offset;
 	} else {
@@ -522,7 +515,6 @@ const uint8 *FontKoreanSVM::getCharDataDefault(uint16 c) const {
 		uint16 uc = _KS_to_unicode(c);
 
 		const uint offset = (uc - 0xAC00) * 32;
-		//warning("getCharDataDefault: c=%04x, uc=%04x, offset=%d, size=%d", c, uc, offset, _fontData16x16Size);
 		assert(offset + 384 <= _fontData16x16Size); // 11184 * 32
 		return _fontData16x16 + offset;
 	}

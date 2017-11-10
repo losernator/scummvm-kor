@@ -133,7 +133,11 @@ AbstractFSNode *POSIXFilesystemNode::getChild(const Common::String &n) const {
 bool POSIXFilesystemNode::getChildren(AbstractFSList &myList, ListMode mode, bool hidden) const {
 	assert(_isDirectory);
 
-	struct RDIR *dirp = retro_opendir(_path.c_str());
+#ifdef __OS2__
+	if (_path == "/") {
+		// Special case for the root dir: List all DOS drives
+		ULONG ulDrvNum;
+		ULONG ulDrvMap;
 
 		DosQueryCurrentDisk(&ulDrvNum, &ulDrvMap);
 

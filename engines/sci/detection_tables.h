@@ -499,6 +499,18 @@ static const struct ADGameDescription SciGameDescriptions[] = {
 		AD_LISTEND},
 		Common::EN_ANY, Common::kPlatformWindows, ADGF_CD, GUIO4(GUIO_MIDIGM, GAMEOPTION_PREFER_DIGITAL_SFX, GAMEOPTION_ORIGINAL_SAVELOAD, GAMEOPTION_FB01_MIDI)	},
 
+#ifdef SCUMMVMKOR
+	// Eco Quest - Korean DOS CD 1.1
+	// SCI interpreter version 1.001.064
+	{"ecoquest", "CD", {
+		{"resource.aud", 0, "1971dcb007a0c064c152175400f4021b", 305187924},
+		{"resource.map", 0, "a4b73d5d2b55bdb6e44345e99c8fbdd0", 4804},
+		{"resource.000", 0, "d908dbef56816ac6c60dd145fdeafb2b", 3536046},
+		{"resource.msg", 0, "0c68a203302841adb9faa47ff61edd93", 561801},
+		AD_LISTEND},
+		Common::KO_KOR, Common::kPlatformDOS, ADGF_CD, GUIO3(GAMEOPTION_PREFER_DIGITAL_SFX, GAMEOPTION_ORIGINAL_SAVELOAD, GAMEOPTION_FB01_MIDI)	},
+#endif
+
 	// Eco Quest - English DOS Floppy (reported by misterhands in bug #6599)
 	// Game v1.10, interpreter 2.000.286, INT #6.12.92
 	{"ecoquest", "Floppy", {
@@ -787,6 +799,23 @@ static const struct ADGameDescription SciGameDescriptions[] = {
 		{"resource.000", 0, "69b7516962510f780d38519cc15fcc7c", 12581736},
 		AD_LISTEND},
 		Common::EN_ANY, Common::kPlatformWindows, ADGF_CD | ADGF_UNSTABLE, GUIO_GK1_CD },
+#ifdef SCUMMVMKOR
+	// Gabriel Knight - Korean Windows CD (from aquilegia)
+	// Executable scanning reports "2.000.000", VERSION file reports "01.100.000"
+	{"gk1", "CD", {
+		{"resource.map", 0, "372d059f75856afa6d73dd84cbb8913d", 10996},
+		{"resource.000", 0, "69b7516962510f780d38519cc15fcc7c", 12581736},
+		{"resource.msg", 0, "5a35e00e0b8d656ff423b76831a86ab8", 980765},
+		AD_LISTEND},
+		Common::KO_KOR, Common::kPlatformDOS, ADGF_CD | ADGF_UNSTABLE, GUIO_GK1_CD },
+
+	{"gk1", "CD", {
+		{"resource.map", 0, "372d059f75856afa6d73dd84cbb8913d", 10996},
+		{"resource.000", 0, "69b7516962510f780d38519cc15fcc7c", 12581736},
+		{"resource.msg", 0, "5a35e00e0b8d656ff423b76831a86ab8", 980765},
+		AD_LISTEND},
+		Common::KO_KOR, Common::kPlatformWindows, ADGF_CD | ADGF_UNSTABLE, GUIO_GK1_CD },
+#endif
 
 	// Gabriel Knight - German DOS CD (from Tobis87)
 	// SCI interpreter version 2.000.000
@@ -1287,6 +1316,20 @@ static const struct ADGameDescription SciGameDescriptions[] = {
 		AD_LISTEND},
 		Common::EN_ANY, Common::kPlatformDOS, 0, GUIO5(GUIO_NOSPEECH, GAMEOPTION_EGA_UNDITHER, GAMEOPTION_PREFER_DIGITAL_SFX, GAMEOPTION_ORIGINAL_SAVELOAD, GAMEOPTION_FB01_MIDI)	},
 
+#ifdef SCUMMVMKOR
+	// King's Quest 1 SCI Remake - English DOS (from the King's Quest Collection)
+	// Executable scanning reports "S.old.010", VERSION file reports "1.000.051"
+	// SCI interpreter version 0.000.999
+	{"kq1sci", "SCI", {
+		{"resource.map", 0, "7fe9399a0bec84ca5727309778d27f07", 5790},
+		{"resource.001", 0, "fed9e0072ffd511d248674e60dee2099", 555439},
+		{"resource.002", 0, "fed9e0072ffd511d248674e60dee2099", 714062},
+		{"resource.003", 0, "fed9e0072ffd511d248674e60dee2099", 717478},
+		{"resource.msg", 0, "6f44b0324c9a3d478510d982eb5084dd", 2948975},
+		AD_LISTEND},
+		Common::KO_KOR, Common::kPlatformDOS, 0, GUIO4(GUIO_NOSPEECH, GAMEOPTION_PREFER_DIGITAL_SFX, GAMEOPTION_ORIGINAL_SAVELOAD, GAMEOPTION_FB01_MIDI)	},
+#endif
+
 	// King's Quest 1 SCI Remake - English DOS (supplied by ssburnout in bug report #3049193)
 	// 1.000.051 9x5.25" (label: INT#9.19.90)
 	{"kq1sci", "SCI", {
@@ -1752,6 +1795,31 @@ static const struct ADGameDescription SciGameDescriptions[] = {
 		{"resource.msg", 0, "b7e8220be596fd6a9287eae5a8fd354a", 279886},
 		AD_LISTEND},
 		Common::IT_ITA, Common::kPlatformDOS, 0, GUIO4(GUIO_NOSPEECH, GAMEOPTION_PREFER_DIGITAL_SFX, GAMEOPTION_ORIGINAL_SAVELOAD, GAMEOPTION_FB01_MIDI)	},
+#ifdef SCUMMVMKOR
+	// King's Quest 5 - English DOS Floppy
+	// SCI interpreter version 1.000.060
+	{"kq5", "", {
+		{"resource.map", 0, "d6172c27b453350e158815fbae23f41e", 8004},
+		{"resource.000", 0, "a591bd4b879fc832b8095c0b3befe9e2", 276351},
+		{"resource.001", 0, "3f28c72dc7531aaccf8e972c7ee50d14", 1022087},
+		{"resource.002", 0, "3e56ba5bf5e8637c619b57f6b6cacbb4", 1307211},
+		{"resource.003", 0, "5d5d498f33ca7cde0d5b058630b36ad3", 1347875},
+		{"resource.004", 0, "944a996f9cc90dabde9f51ed7dd52366", 1239689},
+		{"resource.005", 0, "b6c43441cb78a9b484efc8e614aac092", 1287999},
+		{"resource.006", 0, "672ede1136e9e401658538e51bd5dc22", 1172619},
+		{"resource.007", 0, "2f48faf27666b58c276dda20f91f4a93", 1240456},
+		{"resource.msg", 0, "8d94253e33b268c310126562a72de6f5", 93930},
+		AD_LISTEND},
+		Common::KO_KOR, Common::kPlatformDOS, 0, GUIO4(GUIO_NOSPEECH, GAMEOPTION_PREFER_DIGITAL_SFX, GAMEOPTION_ORIGINAL_SAVELOAD, GAMEOPTION_FB01_MIDI)	},
+
+	// King's Quest 6 - Korean DOS Floppy (supplied by aquilegia)
+	{"kq6", "", {
+		{"resource.map", 0, "a362063318eebe7d6423b1d9dc6213e1", 8703},
+		{"resource.000", 0, "f2b7f753992c56a0c7a08d6a5077c895", 7863324},
+		{"resource.msg", 0, "51ca9f8afc42ef442f6545b3c82a9165", 596121},
+		AD_LISTEND},
+		Common::KO_KOR, Common::kPlatformDOS, 0, GUIO4(GUIO_NOSPEECH, GAMEOPTION_PREFER_DIGITAL_SFX, GAMEOPTION_ORIGINAL_SAVELOAD, GAMEOPTION_FB01_MIDI)	},
+#endif
 
 	// King's Quest 6 - English DOS CD (from the King's Quest Collection)
 	// Executable scanning reports "1.cfs.158", VERSION file reports "1.034 9/11/94 - KQ6 version 1.000.00G"

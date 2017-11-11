@@ -1528,6 +1528,24 @@ static const struct ADGameDescription SciGameDescriptions[] = {
 		AD_LISTEND},
 		Common::EN_ANY, Common::kPlatformDOS, 0, GUIO4(GUIO_NOSPEECH, GAMEOPTION_PREFER_DIGITAL_SFX, GAMEOPTION_ORIGINAL_SAVELOAD, GAMEOPTION_FB01_MIDI)	},
 
+#ifdef SCUMMVMKOR
+	// King's Quest 5 - Korean DOS Floppy
+	// SCI interpreter version 1.000.060
+	{"kq5", "", {
+		{"resource.map", 0, "d6172c27b453350e158815fbae23f41e", 8004},
+		{"resource.000", 0, "a591bd4b879fc832b8095c0b3befe9e2", 276351},
+		{"resource.001", 0, "3f28c72dc7531aaccf8e972c7ee50d14", 1022087},
+		{"resource.002", 0, "3e56ba5bf5e8637c619b57f6b6cacbb4", 1307211},
+		{"resource.003", 0, "5d5d498f33ca7cde0d5b058630b36ad3", 1347875},
+		{"resource.004", 0, "944a996f9cc90dabde9f51ed7dd52366", 1239689},
+		{"resource.005", 0, "b6c43441cb78a9b484efc8e614aac092", 1287999},
+		{"resource.006", 0, "672ede1136e9e401658538e51bd5dc22", 1172619},
+		{"resource.007", 0, "2f48faf27666b58c276dda20f91f4a93", 1240456},
+		{"resource.msg", 0, "8d94253e33b268c310126562a72de6f5", 93930},
+		AD_LISTEND},
+		Common::KO_KOR, Common::kPlatformDOS, 0, GUIO4(GUIO_NOSPEECH, GAMEOPTION_PREFER_DIGITAL_SFX, GAMEOPTION_ORIGINAL_SAVELOAD, GAMEOPTION_FB01_MIDI)	},
+#endif
+
 	// King's Quest 5 - English DOS Floppy
 	// VERSION file reports "0.000.051"
 	// Supplied by misterhands in bug report #3536863.
@@ -1795,31 +1813,6 @@ static const struct ADGameDescription SciGameDescriptions[] = {
 		{"resource.msg", 0, "b7e8220be596fd6a9287eae5a8fd354a", 279886},
 		AD_LISTEND},
 		Common::IT_ITA, Common::kPlatformDOS, 0, GUIO4(GUIO_NOSPEECH, GAMEOPTION_PREFER_DIGITAL_SFX, GAMEOPTION_ORIGINAL_SAVELOAD, GAMEOPTION_FB01_MIDI)	},
-#ifdef SCUMMVMKOR
-	// King's Quest 5 - English DOS Floppy
-	// SCI interpreter version 1.000.060
-	{"kq5", "", {
-		{"resource.map", 0, "d6172c27b453350e158815fbae23f41e", 8004},
-		{"resource.000", 0, "a591bd4b879fc832b8095c0b3befe9e2", 276351},
-		{"resource.001", 0, "3f28c72dc7531aaccf8e972c7ee50d14", 1022087},
-		{"resource.002", 0, "3e56ba5bf5e8637c619b57f6b6cacbb4", 1307211},
-		{"resource.003", 0, "5d5d498f33ca7cde0d5b058630b36ad3", 1347875},
-		{"resource.004", 0, "944a996f9cc90dabde9f51ed7dd52366", 1239689},
-		{"resource.005", 0, "b6c43441cb78a9b484efc8e614aac092", 1287999},
-		{"resource.006", 0, "672ede1136e9e401658538e51bd5dc22", 1172619},
-		{"resource.007", 0, "2f48faf27666b58c276dda20f91f4a93", 1240456},
-		{"resource.msg", 0, "8d94253e33b268c310126562a72de6f5", 93930},
-		AD_LISTEND},
-		Common::KO_KOR, Common::kPlatformDOS, 0, GUIO4(GUIO_NOSPEECH, GAMEOPTION_PREFER_DIGITAL_SFX, GAMEOPTION_ORIGINAL_SAVELOAD, GAMEOPTION_FB01_MIDI)	},
-
-	// King's Quest 6 - Korean DOS Floppy (supplied by aquilegia)
-	{"kq6", "", {
-		{"resource.map", 0, "a362063318eebe7d6423b1d9dc6213e1", 8703},
-		{"resource.000", 0, "f2b7f753992c56a0c7a08d6a5077c895", 7863324},
-		{"resource.msg", 0, "51ca9f8afc42ef442f6545b3c82a9165", 596121},
-		AD_LISTEND},
-		Common::KO_KOR, Common::kPlatformDOS, 0, GUIO4(GUIO_NOSPEECH, GAMEOPTION_PREFER_DIGITAL_SFX, GAMEOPTION_ORIGINAL_SAVELOAD, GAMEOPTION_FB01_MIDI)	},
-#endif
 
 	// King's Quest 6 - English DOS CD (from the King's Quest Collection)
 	// Executable scanning reports "1.cfs.158", VERSION file reports "1.034 9/11/94 - KQ6 version 1.000.00G"
@@ -1838,6 +1831,36 @@ static const struct ADGameDescription SciGameDescriptions[] = {
 		{"resource.000", 0, "233394a5f33b475ae5975e7e9a420865", 8376352},
 		AD_LISTEND},
 		Common::EN_ANY, Common::kPlatformWindows, ADGF_CD, GUIO6(GUIO_NOASPECT, GAMEOPTION_HIGH_RESOLUTION_GRAPHICS, GAMEOPTION_KQ6_WINDOWS_CURSORS, GAMEOPTION_PREFER_DIGITAL_SFX, GAMEOPTION_ORIGINAL_SAVELOAD, GAMEOPTION_FB01_MIDI)	},
+
+#ifdef SCUMMVMKOR
+	// King's Quest 6 - Korean DOS Floppy (supplied by aquilegia)
+	{"kq6", "", {
+		{"resource.map", 0, "a362063318eebe7d6423b1d9dc6213e1", 8703},
+		{"resource.000", 0, "f2b7f753992c56a0c7a08d6a5077c895", 7863324},
+		{"resource.msg", 0, "51ca9f8afc42ef442f6545b3c82a9165", 596121},
+		AD_LISTEND},
+		Common::KO_KOR, Common::kPlatformDOS, 0, GUIO4(GUIO_NOSPEECH, GAMEOPTION_PREFER_DIGITAL_SFX, GAMEOPTION_ORIGINAL_SAVELOAD, GAMEOPTION_FB01_MIDI)	},
+
+	// King's Quest 6 - Korean DOS CD (from the King's Quest Collection)
+	// Executable scanning reports "1.cfs.158", VERSION file reports "1.034 9/11/94 - KQ6 version 1.000.00G"
+	// SCI interpreter version 1.001.054
+	{"kq6", "CD", {
+		{"resource.map", 0, "7a550ebfeae2575ca00d47703a6a774c", 9215},
+		{"resource.000", 0, "233394a5f33b475ae5975e7e9a420865", 8376352},
+		{"resource.msg", 0, "51ca9f8afc42ef442f6545b3c82a9165", 596121},
+		AD_LISTEND},
+		Common::KO_KOR, Common::kPlatformDOS, ADGF_CD, GUIO4(GAMEOPTION_HIGH_RESOLUTION_GRAPHICS, GAMEOPTION_PREFER_DIGITAL_SFX, GAMEOPTION_ORIGINAL_SAVELOAD, GAMEOPTION_FB01_MIDI)	},
+
+	// King's Quest 6 - Korean Windows CD (from the King's Quest Collection)
+	// Executable scanning reports "1.cfs.158", VERSION file reports "1.034 9/11/94 - KQ6 version 1.000.00G"
+	// SCI interpreter version 1.001.054
+	{"kq6", "CD", {
+		{"resource.map", 0, "7a550ebfeae2575ca00d47703a6a774c", 9215},
+		{"resource.000", 0, "233394a5f33b475ae5975e7e9a420865", 8376352},
+		{"resource.msg", 0, "51ca9f8afc42ef442f6545b3c82a9165", 596121},
+		AD_LISTEND},
+		Common::KO_KOR, Common::kPlatformWindows, ADGF_CD, GUIO6(GUIO_NOASPECT, GAMEOPTION_HIGH_RESOLUTION_GRAPHICS, GAMEOPTION_KQ6_WINDOWS_CURSORS, GAMEOPTION_PREFER_DIGITAL_SFX, GAMEOPTION_ORIGINAL_SAVELOAD, GAMEOPTION_FB01_MIDI)	},
+#endif
 
 	// King's Quest 6 - English Macintosh Floppy
 	// VERSION file reports "1.0"

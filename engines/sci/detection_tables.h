@@ -142,6 +142,17 @@ static const struct ADGameDescription SciGameDescriptions[] = {
 		AD_LISTEND},
 		Common::EN_ANY, Common::kPlatformDOS, 0, GUIO4(GUIO_NOSPEECH, GAMEOPTION_PREFER_DIGITAL_SFX, GAMEOPTION_ORIGINAL_SAVELOAD, GAMEOPTION_FB01_MIDI)	},
 
+#ifdef SCUMMVMKOR
+	// Castle of Dr. Brain - Korean DOS Floppy 1.1
+	{"castlebrain", "", {
+		{"resource.map", 0, "f77728304c70017c54793eb6ca648174", 2745},
+		{"resource.000", 0, "27ec5fa09cd12a7fd16e86d96a2ed245", 347071},
+		{"resource.001", 0, "13e81e1839cd7b216d2bb5615c1ca160", 796776},
+		{"resource.002", 0, "930e416bec196b9703a331d81b3d66f2", 1283812},
+		{"resource.msg", 0, "71c6f480e742a0dd3700ec7825962921", 49538},
+		AD_LISTEND},
+		Common::KO_KOR, Common::kPlatformDOS, 0, GUIO4(GUIO_NOSPEECH, GAMEOPTION_PREFER_DIGITAL_SFX, GAMEOPTION_ORIGINAL_SAVELOAD, GAMEOPTION_FB01_MIDI)	},
+#endif
 	// Castle of Dr. Brain - English DOS Floppy 1.000
 	// Reported by graxer in bug report #3037942
 	{"castlebrain", "", {
@@ -2062,6 +2073,17 @@ static const struct ADGameDescription SciGameDescriptions[] = {
 		AD_LISTEND},
 		Common::EN_ANY, Common::kPlatformDOS, ADGF_CD, GUIO3(GAMEOPTION_PREFER_DIGITAL_SFX, GAMEOPTION_ORIGINAL_SAVELOAD, GAMEOPTION_FB01_MIDI)	},
 
+#ifdef SCUMMVMKOR
+	// Laura Bow 2 - Korean DOS CD (from "The Roberta Williams Antology"/1996)
+	// Executable scanning reports "1.001.072", VERSION file reports "1.1" (from jvprat)
+	// SCI interpreter version 1.001.069 (just a guess)
+	{"laurabow2", "CD", {
+		{"resource.map", 0, "a70945e61ba7ac7bfea6b7bd72c6aec5", 7274},
+		{"resource.000", 0, "82578b8d5a7e09c4c58891ca49fae35b", 5598672},
+		{"resource.msg", 0, "bdc2167ebe55612b8ff17347f70e2b83", 561801},
+		AD_LISTEND},
+		Common::KO_KOR, Common::kPlatformDOS, ADGF_CD, GUIO3(GAMEOPTION_PREFER_DIGITAL_SFX, GAMEOPTION_ORIGINAL_SAVELOAD, GAMEOPTION_FB01_MIDI)	},
+#endif
 	// Laura Bow 2 v1.1 - French DOS Floppy (from Hkz)
 	{"laurabow2", "", {
 		{"resource.map", 0, "3b6dfbcda210bbc3f23fd1927113bf98", 6483},

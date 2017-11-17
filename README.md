@@ -113,3 +113,6 @@ http://wonst719.cafe24.com/zbxe/status
 
 ## 시에라온라인 게임 한글 패치
 http://cafe.naver.com/koreaadv
+
+# 감사의 말
+- ScummVM 을 한글화하는 데 큰 기여를 하신 원스타님을 비롯한 ScummVM Kor 팀, ScummVM 1.9 버전을 공개하신 누리돌님과 시에라온라인 게임 한글화에 수고하시는 제냐님, 추리소년님을 비롯한 KoreaADV 동호회 관계자 분들께 감사드립니다.

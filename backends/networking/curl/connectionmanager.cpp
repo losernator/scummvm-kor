@@ -22,12 +22,13 @@
 
 #define FORBIDDEN_SYMBOL_ALLOW_ALL
 
+#include <curl/curl.h>
 #include "backends/networking/curl/connectionmanager.h"
 #include "backends/networking/curl/networkreadstream.h"
 #include "common/debug.h"
+#include "common/fs.h"
 #include "common/system.h"
 #include "common/timer.h"
-#include <curl/curl.h>
 
 namespace Common {
 
@@ -81,7 +82,11 @@ Request *ConnectionManager::addRequest(Request *request, RequestCallback callbac
 Common::String ConnectionManager::urlEncode(Common::String s) const {
 	if (!_multi)
 		return "";
+#if LIBCURL_VERSION_NUM >= 0x070F04
 	char *output = curl_easy_escape(_multi, s.c_str(), s.size());
+#else
+	char *output = curl_escape(s.c_str(), s.size());
+#endif
 	if (output) {
 		Common::String result = output;
 		curl_free(output);
@@ -92,6 +97,29 @@ Common::String ConnectionManager::urlEncode(Common::String s) const {
 
 uint32 ConnectionManager::getCloudRequestsPeriodInMicroseconds() {
 	return TIMER_INTERVAL * CLOUD_PERIOD;
+}
+
+const char *ConnectionManager::getCaCertPath() {
+#if defined(DATA_PATH)
+	static enum {
+		kNotInitialized,
+		kFileNotFound,
+		kFileExists
+	} state = kNotInitialized;
+
+	if (state == kNotInitialized) {
+		Common::FSNode node(DATA_PATH"/cacert.pem");
+		state = node.exists() ? kFileExists : kFileNotFound;
+	}
+
+	if (state == kFileExists) {
+		return DATA_PATH"/cacert.pem";
+	} else {
+		return nullptr;
+	}
+#else
+	return nullptr;
+#endif
 }
 
 //private goes here:
@@ -147,7 +175,8 @@ void ConnectionManager::interateRequests() {
 	_addedRequestsMutex.unlock();
 
 	//call handle() of all running requests (so they can do their work)
-	debug(9, "handling %d request(s)", _requests.size());
+	if (_frame % DEBUG_PRINT_PERIOD == 0)
+		debug(9, "handling %d request(s)", _requests.size());
 	for (Common::Array<RequestWithCallback>::iterator i = _requests.begin(); i != _requests.end();) {
 		Request *request = i->request;
 		if (request) {
@@ -179,20 +208,19 @@ void ConnectionManager::processTransfers() {
 	int messagesInQueue;
 	CURLMsg *curlMsg;
 	while ((curlMsg = curl_multi_info_read(_multi, &messagesInQueue))) {
-		CURL *easyHandle = curlMsg->easy_handle;
-
-		NetworkReadStream *stream;
-		curl_easy_getinfo(easyHandle, CURLINFO_PRIVATE, &stream);
-		if (stream)
-			stream->finished();
-
 		if (curlMsg->msg == CURLMSG_DONE) {
-			debug(9, "ConnectionManager: SUCCESS (%d - %s)", curlMsg->data.result, curl_easy_strerror(curlMsg->data.result));
-		} else {
-			warning("ConnectionManager: FAILURE (CURLMsg (%d))", curlMsg->msg);
-		}
+			CURL *easyHandle = curlMsg->easy_handle;
 
-		curl_multi_remove_handle(_multi, easyHandle);
+			NetworkReadStream *stream = nullptr;
+			curl_easy_getinfo(easyHandle, CURLINFO_PRIVATE, &stream);
+
+			if (stream)
+				stream->finished(curlMsg->data.result);
+
+			curl_multi_remove_handle(_multi, easyHandle);
+		} else {
+			warning("Unknown libcurl message type %d", curlMsg->msg);
+		}
 	}
 }
 

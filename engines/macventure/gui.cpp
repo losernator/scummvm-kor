@@ -33,6 +33,7 @@
 #include "common/debug-channels.h"
 #include "common/debug.h"
 #include "image/bmp.h"
+#include "graphics/macgui/macfontmanager.h"
 
 #include "macventure/gui.h"
 #include "macventure/dialog.h"
@@ -67,7 +68,7 @@ enum {
 
 const bool kLoadStaticMenus = true;
 
-static const Graphics::MenuData menuSubItems[] = {
+static const Graphics::MacMenuData menuSubItems[] = {
 	{ kMenuHighLevel,	"File",				0, 0, false },
 	{ kMenuHighLevel,	"Edit",				0, 0, false },
 	{ kMenuHighLevel,	"Special",			0, 0, false },
@@ -266,7 +267,7 @@ const WindowData &Gui::getWindowData(WindowReference reference) {
 }
 
 const Graphics::Font &Gui::getCurrentFont() {
-	return *_wm.getFont("Chicago-12", Graphics::FontManager::kBigGUIFont);
+	return *_wm._fontMan->getFont(Graphics::MacFont(Graphics::kMacFontChicago, 12));
 }
 
 void Gui::bringToFront(WindowReference winID) {
@@ -334,7 +335,7 @@ WindowReference Gui::createInventoryWindow(ObjID objRef) {
 	Graphics::MacWindow *newWindow = _wm.addWindow(true, true, true);
 	WindowData newData;
 	GlobalSettings settings = _engine->getGlobalSettings();
-	newData.refcon = (WindowReference)ABS(_inventoryWindows.size() + kInventoryStart); // This is a HACK
+	newData.refcon = (WindowReference)(_inventoryWindows.size() + kInventoryStart); // This is a HACK
 
 	if (_windowData->back().refcon < 0x80) { // There is already another inventory window
 		newData.bounds = _windowData->back().bounds; // Inventory windows are always last
@@ -801,6 +802,7 @@ void Gui::updateWindow(WindowReference winID, bool containerOpen) {
 			ObjID child = children[i].obj;
 			BlitMode mode = kBlitDirect;
 			bool off = !_engine->isObjVisible(child);
+			// CHECKME: Since flag = 0, this always evaluates to false
 			if (flag || !off || !_engine->isObjClickable(child)) {
 				mode = kBlitBIC;
 				if (off || flag) {
@@ -1020,9 +1022,8 @@ WindowReference Gui::getObjWindow(ObjID objID) {
 	case 0xfffd: return kSelfWindow;
 	case 0xfffe: return kOutConsoleWindow;
 	case 0xffff: return kCommandsWindow;
+	default: return findObjWindow(objID);
 	}
-
-	return findObjWindow(objID);
 }
 
 WindowReference Gui::findObjWindow(ObjID objID) {
@@ -1249,7 +1250,7 @@ void Gui::invertWindowColors(WindowReference winID) {
 }
 
 bool Gui::tryCloseWindow(WindowReference winID) {
-	WindowData data = findWindowData(winID);
+	//WindowData data = findWindowData(winID);
 	Graphics::MacWindow *win = findWindow(winID);
 	_wm.removeWindow(win);
 	if (winID < 0x80) {

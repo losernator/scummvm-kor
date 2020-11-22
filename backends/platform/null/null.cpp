@@ -27,6 +27,7 @@
 #define FORBIDDEN_SYMBOL_EXCEPTION_stdout
 #define FORBIDDEN_SYMBOL_EXCEPTION_stderr
 #define FORBIDDEN_SYMBOL_EXCEPTION_fputs
+#define FORBIDDEN_SYMBOL_EXCEPTION_exit
 
 #include "backends/modular-backend.h"
 #include "base/main.h"
@@ -47,6 +48,8 @@
 	#include "backends/fs/amigaos4/amigaos4-fs-factory.h"
 #elif defined(POSIX)
 	#include "backends/fs/posix/posix-fs-factory.h"
+#elif defined(RISCOS)
+	#include "backends/fs/riscos/riscos-fs-factory.h"
 #elif defined(WIN32)
 	#include "backends/fs/windows/windows-fs-factory.h"
 #endif
@@ -65,6 +68,8 @@ public:
 	virtual void delayMillis(uint msecs);
 	virtual void getTimeAndDate(TimeDate &t) const {}
 
+	virtual void quit();
+
 	virtual void logMessage(LogMessageType::Type type, const char *message);
 };
 
@@ -73,6 +78,8 @@ OSystem_NULL::OSystem_NULL() {
 		_fsFactory = new AmigaOSFilesystemFactory();
 	#elif defined(POSIX)
 		_fsFactory = new POSIXFilesystemFactory();
+	#elif defined(RISCOS)
+		_fsFactory = new RISCOSFilesystemFactory();
 	#elif defined(WIN32)
 		_fsFactory = new WindowsFilesystemFactory();
 	#else
@@ -89,7 +96,7 @@ void OSystem_NULL::initBackend() {
 	_eventManager = new DefaultEventManager(this);
 	_savefileManager = new DefaultSaveFileManager();
 	_graphicsManager = new NullGraphicsManager();
-	_mixer = new Audio::MixerImpl(this, 22050);
+	_mixer = new Audio::MixerImpl(22050);
 
 	((Audio::MixerImpl *)_mixer)->setReady(false);
 
@@ -109,6 +116,10 @@ uint32 OSystem_NULL::getMillis(bool skipRecord) {
 }
 
 void OSystem_NULL::delayMillis(uint msecs) {
+}
+
+void OSystem_NULL::quit() {
+	exit(0);
 }
 
 void OSystem_NULL::logMessage(LogMessageType::Type type, const char *message) {
@@ -133,7 +144,7 @@ int main(int argc, char *argv[]) {
 
 	// Invoke the actual ScummVM main entry point:
 	int res = scummvm_main(argc, argv);
-	delete (OSystem_NULL *)g_system;
+	g_system->destroy();
 	return res;
 }
 

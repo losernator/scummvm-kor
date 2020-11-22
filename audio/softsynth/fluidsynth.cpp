@@ -35,7 +35,11 @@
 #include "backends/platform/ios7/ios7_common.h"
 #endif
 
+#ifdef __LIBRETRO__
+#include <fluidlite.h>
+#else
 #include <fluidsynth.h>
+#endif
 
 class MidiDriver_FluidSynth : public MidiDriver_Emulated {
 private:
@@ -87,27 +91,30 @@ MidiDriver_FluidSynth::MidiDriver_FluidSynth(Audio::Mixer *mixer)
 		_outputRate = 96000;
 }
 
+// The string duplication below is there only because older versions (1.1.6
+// and earlier?) of FluidSynth expected the string parameters to be non-const.
+
 void MidiDriver_FluidSynth::setInt(const char *name, int val) {
-	char *name2 = strdup(name);
+	char *name2 = scumm_strdup(name);
 
 	fluid_settings_setint(_settings, name2, val);
-	free(name2);
+	delete[] name2;
 }
 
 void MidiDriver_FluidSynth::setNum(const char *name, double val) {
-	char *name2 = strdup(name);
+	char *name2 = scumm_strdup(name);
 
 	fluid_settings_setnum(_settings, name2, val);
-	free(name2);
+	delete[] name2;
 }
 
 void MidiDriver_FluidSynth::setStr(const char *name, const char *val) {
-	char *name2 = strdup(name);
-	char *val2 = strdup(val);
+	char *name2 = scumm_strdup(name);
+	char *val2 = scumm_strdup(val);
 
 	fluid_settings_setstr(_settings, name2, val2);
-	free(name2);
-	free(val2);
+	delete[] name2;
+	delete[] val2;
 }
 
 int MidiDriver_FluidSynth::open() {
@@ -157,7 +164,7 @@ int MidiDriver_FluidSynth::open() {
 
 		double reverbRoomSize = (double)ConfMan.getInt("fluidsynth_reverb_roomsize") / 100.0;
 		double reverbDamping = (double)ConfMan.getInt("fluidsynth_reverb_damping") / 100.0;
-		int reverbWidth = ConfMan.getInt("fluidsynth_reverb_width");
+		double reverbWidth = (double)ConfMan.getInt("fluidsynth_reverb_width") / 100.0;
 		double reverbLevel = (double)ConfMan.getInt("fluidsynth_reverb_level") / 100.0;
 
 		fluid_synth_set_reverb(_synth, reverbRoomSize, reverbDamping, reverbWidth, reverbLevel);

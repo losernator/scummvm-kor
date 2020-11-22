@@ -644,7 +644,7 @@ private:
 	byte _palChangesDoorButtonAndWallOrnD3[16]; // @ G0198_auc_Graphic558_PaletteChanges_DoorButtonAndWallOrnament_D3
 	byte _palChangesDoorButtonAndWallOrnD2[16]; // @ G0199_auc_Graphic558_PaletteChanges_DoorButtonAndWallOrnament_D2
 
-	byte *bitmapWallSetWallD0L; // @ G0701_puc_Bitmap_WallSet_Wall_D0L
+	byte *_bitmapWallSetWallD0L; // @ G0701_puc_Bitmap_WallSet_Wall_D0L
 	byte *_bitmapWallSetWallD0R; // @ G0702_puc_Bitmap_WallSet_Wall_D0R
 	byte *_bitmapWallSetDoorFrameTopD2LCR; // @ G0703_puc_Bitmap_WallSet_DoorFrameTop_D2LCR
 	byte *_bitmapWallSetDoorFrameTopD1LCR; // @ G0704_puc_Bitmap_WallSet_DoorFrameTop_D1LCR
@@ -670,6 +670,11 @@ private:
 	int16 _currentFloorSet;// @ G0230_i_CurrentFloorSet
 
 	bool _useFlippedWallAndFootprintsBitmap; // @ G0076_B_UseFlippedWallAndFootprintsBitmaps
+
+	byte _wallOrnamentCoordSets[8][13][6]; // @ G0205_aaauc_Graphic558_WallOrnamentCoordinateSets
+	uint16 _doorOrnCoordSets[4][3][6]; // @ G0207_aaauc_Graphic558_DoorOrnamentCoordinateSet
+	byte _doorButtonCoordSet[1]; // @ G0197_auc_Graphic558_DoorButtonCoordinateSet
+	uint16 _doorButtonCoordSets[1][4][6]; // @ G0208_aaauc_Graphic558_DoorButtonCoordinate
 
 	int16 _doorNativeBitmapIndexFrontD3LCR[2]; // @ G0693_ai_DoorNativeBitmapIndex_Front_D3LCR
 	int16 _doorNativeBitmapIndexFrontD2LCR[2]; // @ G0694_ai_DoorNativeBitmapIndex_Front_D2LCR

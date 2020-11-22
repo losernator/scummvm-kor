@@ -29,6 +29,7 @@
 #include "engines/wintermute/dcgf.h"
 #include "engines/wintermute/base/file/base_disk_file.h"
 #include "engines/wintermute/base/base_file_manager.h"
+#include "engines/wintermute/utils/path_util.h"
 #include "common/stream.h"
 #include "common/memstream.h"
 #include "common/file.h"
@@ -36,6 +37,7 @@
 #include "common/archive.h"
 #include "common/tokenizer.h"
 #include "common/config-manager.h"
+
 
 namespace Wintermute {
 
@@ -120,6 +122,7 @@ Common::SeekableReadStream *openDiskFile(const Common::String &filename) {
 		const char* const knownPrefixes[] = { // Known absolute paths
 				"c:/windows/fonts/", // East Side Story refers to "c:\windows\fonts\framd.ttf"
 				"c:/carol6/svn/data/", // Carol Reed 6: Black Circle refers to "c:\carol6\svn\data\sprites\system\help.png"
+				"d:/engine/\0xD2\0xC32/tg_ie_080128_1005/data/", // Tanya Grotter and the Disappearing Floor refers to "d:\engine\<\0xD2><\0xC3>2\tg_ie_080128_1005\data\interface\pixel\pixel.png"
 				"f:/dokument/spel 5/demo/data/" // Carol Reed 5 (non-demo) refers to "f:\dokument\spel 5\demo\data\scenes\credits\op_cred_00\op_cred_00.jpg"
 		};
 
@@ -150,7 +153,7 @@ Common::SeekableReadStream *openDiskFile(const Common::String &filename) {
 	}
 	// File wasn't found in SearchMan, try to parse the path as a relative path.
 	if (!file) {
-		Common::FSNode searchNode = getNodeForRelativePath(filename);
+		Common::FSNode searchNode = getNodeForRelativePath(PathUtil::normalizeFileName(filename));
 		if (searchNode.exists() && !searchNode.isDirectory() && searchNode.isReadable()) {
 			file = searchNode.createReadStream();
 		}

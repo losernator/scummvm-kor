@@ -70,6 +70,7 @@
 #include "common/keyboard.h"
 #include "common/system.h"
 #include "common/file.h"
+#include "graphics/scaler.h"
 
 #if EXTENDED_DEBUGGER_ENABLED
 #include "engines/wintermute/base/scriptables/debuggable/debuggable_script_engine.h"
@@ -104,6 +105,7 @@ BaseGame::BaseGame(const Common::String &targetName) : BaseObject(this), _target
 	_keyboardState = nullptr;
 
 	_mathClass = nullptr;
+	_directoryClass = nullptr;
 
 	_debugLogFile = nullptr;
 	_debugDebugMode = false;
@@ -171,7 +173,12 @@ BaseGame::BaseGame(const Common::String &targetName) : BaseObject(this), _target
 
 	_forceNonStreamedSounds = false;
 
-	_thumbnailWidth = _thumbnailHeight = 0;
+	// These are NOT the actual engine defaults (they are 0, 0),
+	// but we have a use for thumbnails even for games that don't
+	// use them in-game, hence we set a default that is suitably
+	// sized for the GMM (expecting 4:3 ratio)
+	_thumbnailWidth = kThumbnailWidth;
+	_thumbnailHeight = kThumbnailHeight2;
 
 	_localSaveDir = "saves";
 
@@ -231,12 +238,14 @@ BaseGame::~BaseGame() {
 	LOG(0, "Shutting down...");
 
 	ConfMan.setBool("last_run", true);
+	ConfMan.flushToDisk();
 
 	cleanup();
 
 	delete _cachedThumbnail;
 
 	delete _mathClass;
+	delete _directoryClass;
 
 	delete _transMgr;
 	delete _scEngine;
@@ -254,6 +263,7 @@ BaseGame::~BaseGame() {
 	_cachedThumbnail = nullptr;
 
 	_mathClass = nullptr;
+	_directoryClass = nullptr;
 
 	_transMgr = nullptr;
 	_scEngine = nullptr;
@@ -355,6 +365,12 @@ bool BaseGame::initConfManSettings() {
 		_debugShowFPS = false;
 	}
 
+	if (ConfMan.hasKey("bilinear_filtering")) {
+		_bilinearFiltering = ConfMan.getBool("bilinear_filtering");
+	} else {
+		_bilinearFiltering = false;
+	}
+
 	if (ConfMan.hasKey("disable_smartcache")) {
 		_smartCache = ConfMan.getBool("disable_smartcache");
 	} else {
@@ -402,6 +418,11 @@ bool BaseGame::initialize1() {
 			break;
 		}
 
+		_directoryClass = makeSXDirectory(this);
+		if (_directoryClass == nullptr) {
+			break;
+		}
+
 #if EXTENDED_DEBUGGER_ENABLED
 		_scEngine = new DebuggableScEngine(this);
 #else
@@ -438,6 +459,7 @@ bool BaseGame::initialize1() {
 		return STATUS_OK;
 	} else {
 		delete _mathClass;
+		delete _directoryClass;
 		delete _keyboardState;
 		delete _transMgr;
 		delete _surfaceStorage;
@@ -1644,7 +1666,8 @@ bool BaseGame::scCallMethod(ScScript *script, ScStack *stack, ScStack *thisStack
 	// OpenDocument
 	//////////////////////////////////////////////////////////////////////////
 	else if (strcmp(name, "OpenDocument") == 0) {
-		stack->correctParams(0);
+		stack->correctParams(1);
+		g_system->openUrl(stack->pop()->getString());
 		stack->pushNULL();
 		return STATUS_OK;
 	}
@@ -2274,7 +2297,7 @@ ScValue *BaseGame::scGetProperty(const Common::String &name) {
 	// SaveDirectory (RO)
 	//////////////////////////////////////////////////////////////////////////
 	else if (name == "SaveDirectory") {
-		AnsiString dataDir = "saves/";	// TODO: This is just to avoid telling the engine actual paths.
+		AnsiString dataDir = "saves"; // See also: SXDirectory::scGetProperty("TempDirectory")
 		_scValue->setString(dataDir.c_str());
 		return _scValue;
 	}
@@ -2729,6 +2752,16 @@ bool BaseGame::externalCall(ScScript *script, ScStack *stack, ScStack *thisStack
 		thisObj = thisStack->getTop();
 
 		thisObj->setNative(makeSXFile(_gameRef,  stack));
+		stack->pushNULL();
+	}
+
+	//////////////////////////////////////////////////////////////////////////
+	// Directory
+	//////////////////////////////////////////////////////////////////////////
+	else if (strcmp(name, "Directory") == 0) {
+		thisObj = thisStack->getTop();
+
+		thisObj->setNative(makeSXDirectory(_gameRef));
 		stack->pushNULL();
 	}
 
@@ -3872,7 +3905,6 @@ bool BaseGame::isDoubleClick(int32 buttonIndex) {
 //////////////////////////////////////////////////////////////////////////
 void BaseGame::autoSaveOnExit() {
 	_soundMgr->saveSettings();
-	ConfMan.flushToDisk();
 
 	if (!_autoSaveOnExit) {
 		return;

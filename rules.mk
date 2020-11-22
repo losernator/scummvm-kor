@@ -20,12 +20,17 @@ ifdef TOOL_EXECUTABLE
 # TODO: Refactor this, so that even our master executable can use this rule?
 ################################################
 TOOL-$(MODULE) := $(MODULE)/$(TOOL_EXECUTABLE)$(EXEEXT)
+TOOL_LIBS-$(TOOL-$(MODULE)) := $(TOOL_LIBS)
+TOOL_CFLAGS-$(TOOL-$(MODULE)) := $(TOOL_CFLAGS)
+
 $(TOOL-$(MODULE)): $(MODULE_OBJS-$(MODULE)) $(TOOL_DEPS)
-	$(QUIET_CXX)$(CXX) $(LDFLAGS) $+ -o $@
+	$(QUIET_CXX)$(CXX) $(LDFLAGS) $(TOOL_CFLAGS-$@) $+ $(TOOL_LIBS-$@) -o $@
 
 # Reset TOOL_* vars
 TOOL_EXECUTABLE:=
 TOOL_DEPS:=
+TOOL_CFLAGS:=
+TOOL_LIBS:=
 
 # Add to "devtools" target
 devtools: $(TOOL-$(MODULE))
@@ -50,6 +55,13 @@ PLUGIN:=
 # Add to "plugins" target
 plugins: $(PLUGIN-$(MODULE))
 
+ifdef SPLIT_DWARF
+$(PLUGIN-$(MODULE)).dwp: $(PLUGIN-$(MODULE))
+	$(QUIET_DWP)$(DWP) -e $<
+
+plugins: $(PLUGIN-$(MODULE)).dwp
+endif
+
 # Add to the PLUGINS variable
 PLUGINS += $(PLUGIN-$(MODULE))
 
@@ -69,7 +81,11 @@ OBJS += $(MODULE_LIB-$(MODULE))
 # Convenience library target
 $(MODULE_LIB-$(MODULE)): $(MODULE_OBJS-$(MODULE))
 	$(QUIET)-$(RM) $@
+ifeq ($(platform), libnx)
+	$(QUIET_AR)$(AR) -rc $@ $+
+else
 	$(QUIET_AR)$(AR) $@ $+
+endif
 	$(QUIET_RANLIB)$(RANLIB) $@
 
 # Pseudo target for comfort, allows for "make common", "make gui" etc.
@@ -86,5 +102,8 @@ endif # TOOL_EXECUTABLE
 clean: clean-$(MODULE)
 clean-$(MODULE): clean-% :
 	-$(RM) $(MODULE_OBJS-$*) $(MODULE_LIB-$*) $(PLUGIN-$*) $(TOOL-$*)
+ifdef SPLIT_DWARF
+	-$(RM) $(MODULE_OBJS-$*:.o=.dwo)
+endif
 
 .PHONY: clean-$(MODULE) $(MODULE)

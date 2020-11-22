@@ -23,12 +23,12 @@
 // Disable symbol overrides for FILE as that is used in FLAC headers
 #define FORBIDDEN_SYMBOL_EXCEPTION_FILE
 
+#include "dsmain.h"
 #include "common/str.h"
 #include "common/util.h"
 //#include <NDS/ARM9/console.h> //basic print funcionality
 #include "backends/fs/ds/ds-fs.h"
 #include "backends/fs/stdiostream.h"
-#include "dsmain.h"
 #include "fat/gba_nds_fat.h"
 #include "common/bufferedstream.h"
 
@@ -211,9 +211,8 @@ Common::WriteStream *DSFileSystemNode::createWriteStream() {
 	return Common::wrapBufferedWriteStream(stream, WRITE_BUFFER_SIZE);
 }
 
-bool DSFileSystemNode::create(bool isDirectory) {
-	error("Not supported");
-	return false;
+bool DSFileSystemNode::createDirectory() {
+	return _isValid && _isDirectory;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -271,7 +270,7 @@ GBAMPFileSystemNode::GBAMPFileSystemNode(const Common::String& path) {
 	_path = path;
 }
 
-GBAMPFileSystemNode::GBAMPFileSystemNode(const Common::String& path, bool isDir) {
+GBAMPFileSystemNode::GBAMPFileSystemNode(const Common::String& path, bool isDirectoryFlag) {
 	//consolePrintf("'%s'",path.c_str());
 
 	int lastSlash = 3;
@@ -284,7 +283,7 @@ GBAMPFileSystemNode::GBAMPFileSystemNode(const Common::String& path, bool isDir)
 	_displayName = Common::String(path.c_str() + lastSlash + 1);
 	_path = path;
 	_isValid = true;
-	_isDirectory = isDir;
+	_isDirectory = isDirectoryFlag;
 }
 
 
@@ -398,9 +397,9 @@ Common::WriteStream *GBAMPFileSystemNode::createWriteStream() {
 	return Common::wrapBufferedWriteStream(stream, WRITE_BUFFER_SIZE);
 }
 
-bool GBAMPFileSystemNode::create(bool isDirectory) {
-	error("Not supported");
-	return false;
+bool GBAMPFileSystemNode::createDirectory() {
+	warning("GBAMPFileSystemNode::createDirectory(): Not supported");
+	return _isValid && _isDirectory;
 }
 
 
@@ -484,11 +483,11 @@ FILE *std_fopen(const char *name, const char *mode) {
 
 	// Remove file system prefix
 	if ((name[0] == 'd') && (name[1] == 's') && (name[2] == ':') && (name[3] == '/')) {
-		strlcpy(realName, name + 4, MAXPATHLEN);
+		Common::strlcpy(realName, name + 4, MAXPATHLEN);
 	} else if ((name[0] == 'm') && (name[1] == 'p') && (name[2] == ':') && (name[3] == '/')) {
-		strlcpy(realName, name + 4, MAXPATHLEN);
+		Common::strlcpy(realName, name + 4, MAXPATHLEN);
 	} else {
-		strlcpy(realName, name, MAXPATHLEN);
+		Common::strlcpy(realName, name, MAXPATHLEN);
 	}
 
 //	consolePrintf("Open file:");

@@ -24,6 +24,7 @@
 #define FORBIDDEN_SYMBOL_EXCEPTION_time_h
 #define FORBIDDEN_SYMBOL_EXCEPTION_unistd_h
 
+#include <3ds.h>
 #include "osystem.h"
 
 #include "backends/saves/default/default-saves.h"
@@ -35,8 +36,8 @@
 #include "common/str.h"
 #include "config.h"
 
-#include "backends/fs/posix/posix-fs-factory.h"
-#include "backends/fs/posix/posix-fs.h"
+#include "backends/fs/posix-drives/posix-drives-fs-factory.h"
+#include "backends/fs/posix-drives/posix-drives-fs.h"
 #include <unistd.h>
 #include <time.h>
 
@@ -71,12 +72,23 @@ OSystem_3DS::OSystem_3DS():
 	_gameBottomY(0),
 	_gameWidth(320),
 	_gameHeight(240),
+	_magX(0),
+	_magY(0),
+	_magWidth(400),
+	_magHeight(240),
 	_overlayVisible(false),
+	_screenChangeId(0),
+	_magnifyMode(MODE_MAGOFF),
 	exiting(false),
 	sleeping(false)
 {
 	chdir("sdmc:/");
-	_fsFactory = new POSIXFilesystemFactory();
+
+	DrivesPOSIXFilesystemFactory *fsFactory = new DrivesPOSIXFilesystemFactory();
+	fsFactory->addDrive("sdmc:");
+	fsFactory->addDrive("romfs:");
+	_fsFactory = fsFactory;
+
 	Posix::assureDirectoryExists("/3ds/scummvm/saves/");
 }
 
@@ -100,15 +112,11 @@ void OSystem_3DS::initBackend() {
 	ConfMan.registerDefault("aspect_ratio", true);
 	if (!ConfMan.hasKey("vkeybd_pack_name"))
 		ConfMan.set("vkeybd_pack_name", "vkeybd_small");
-	if (!ConfMan.hasKey("vkeybdpath"))
-		ConfMan.set("vkeybdpath", "/3ds/scummvm/kb");
-	if (!ConfMan.hasKey("themepath"))
-		ConfMan.set("themepath", "/3ds/scummvm");
 	if (!ConfMan.hasKey("gui_theme"))
 		ConfMan.set("gui_theme", "builtin");
 
 	_timerManager = new DefaultTimerManager();
-	_savefileManager = new DefaultSaveFileManager("/3ds/scummvm/saves/");
+	_savefileManager = new DefaultSaveFileManager("sdmc:/3ds/scummvm/saves/");
 
 	initGraphics();
 	initAudio();
@@ -124,7 +132,11 @@ void OSystem_3DS::updateConfig() {
 }
 
 Common::String OSystem_3DS::getDefaultConfigFileName() {
-	return "/3ds/scummvm/scummvm.ini";
+	return "sdmc:/3ds/scummvm/scummvm.ini";
+}
+
+void OSystem_3DS::addSysArchivesToSearchSet(Common::SearchSet &s, int priority) {
+	s.add("RomFS", new Common::FSDirectory(DATA_PATH"/"), priority);
 }
 
 uint32 OSystem_3DS::getMillis(bool skipRecord) {
@@ -187,7 +199,7 @@ void OSystem_3DS::fatalError() {
 }
 
 void OSystem_3DS::logMessage(LogMessageType::Type type, const char *message) {
-	printf("3DS log: %s\n", message);
+	printf("%s", message);
 }
 
 } // namespace _3DS

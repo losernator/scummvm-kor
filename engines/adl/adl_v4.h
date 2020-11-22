@@ -25,47 +25,81 @@
 
 #include "adl/adl_v3.h"
 
-namespace Common {
-class RandomSource;
-}
+namespace Adl {
 
-struct DiskOffset {
+// Base track/sector for a region
+struct RegionLocation {
 	byte track;
 	byte sector;
 };
 
-namespace Adl {
+// Location of the 7 initial data blocks, relative to RegionLocation
+struct RegionInitDataOffset {
+	byte track;
+	byte sector;
+	byte offset;
+	byte volume;
+};
 
 class AdlEngine_v4 : public AdlEngine_v3 {
 public:
-	virtual ~AdlEngine_v4() { }
+	virtual ~AdlEngine_v4();
 
 protected:
 	AdlEngine_v4(OSystem *syst, const AdlGameDescription *gd);
 
 	// AdlEngine
-	virtual void setupOpcodeTables();
-	virtual Common::String loadMessage(uint idx) const;
-	Common::String getItemDescription(const Item &item) const;
+	void setupOpcodeTables() override;
+	void gameLoop() override;
+	void loadState(Common::ReadStream &stream) override;
+	void saveState(Common::WriteStream &stream) override;
+	Common::String loadMessage(uint idx) const override;
+	Common::String getItemDescription(const Item &item) const override;
+	void switchRegion(byte region) override;
+	void switchRoom(byte roomNr) override;
 
 	// AdlEngine_v2
-	virtual void adjustDataBlockPtr(byte &track, byte &sector, byte &offset, byte &size) const;
+	void adjustDataBlockPtr(byte &track, byte &sector, byte &offset, byte &size) const override;
 
-	void applyDiskOffset(byte &track, byte &sector) const;
+	enum RegionChunkType {
+		kRegionChunkUnknown,
+		kRegionChunkMessages,
+		kRegionChunkGlobalPics,
+		kRegionChunkVerbs,
+		kRegionChunkNouns,
+		kRegionChunkRooms,
+		kRegionChunkRoomCmds,
+		kRegionChunkGlobalCmds
+	};
 
-	int o4_isVarGT(ScriptEnv &e);
-	int o4_isItemInRoom(ScriptEnv &e);
-	int o4_isNounNotInRoom(ScriptEnv &e);
-	int o4_skipOneCommand(ScriptEnv &e);
-	int o4_listInv(ScriptEnv &e);
-	int o4_moveItem(ScriptEnv &e);
-	int o4_dummy(ScriptEnv &e);
-	int o4_setTextMode(ScriptEnv &e);
-	int o4_setDisk(ScriptEnv &e);
-	int o4_sound(ScriptEnv &e);
+	void loadRegionLocations(Common::ReadStream &stream, uint regions);
+	void loadRegionInitDataOffsets(Common::ReadStream &stream, uint regions);
+	void initRegions(const byte *roomsPerRegion, uint regions);
+	void fixupDiskOffset(byte &track, byte &sector) const;
+	virtual RegionChunkType getRegionChunkType(const uint16 addr) const;
+	void loadRegion(byte region);
+	void loadItemPicIndex(Common::ReadStream &stream, uint items);
+	void backupRoomState(byte room);
+	virtual void initRoomState(RoomState &roomState) const;
+	virtual byte restoreRoomState(byte room);
+	void backupVars();
+	void restoreVars();
 
-	byte _curDisk;
-	Common::Array<DiskOffset> _diskOffsets;
+	int o_isItemInRoom(ScriptEnv &e) override;
+	virtual int o_isVarGT(ScriptEnv &e);
+	int o_moveItem(ScriptEnv &e) override;
+	virtual int o_setRegionToPrev(ScriptEnv &e);
+	int o_moveAllItems(ScriptEnv &e) override;
+	virtual int o_setRegion(ScriptEnv &e);
+	int o_save(ScriptEnv &e) override;
+	int o_restore(ScriptEnv &e) override;
+	int o_restart(ScriptEnv &e) override;
+	virtual int o_setRegionRoom(ScriptEnv &e);
+	int o_setRoomPic(ScriptEnv &e) override;
+
+	Common::Array<RegionLocation> _regionLocations;
+	Common::Array<RegionInitDataOffset> _regionInitDataOffsets;
+	Common::SeekableReadStream *_itemPicIndex;
 };
 
 } // End of namespace Adl

@@ -20,7 +20,7 @@
  *
  */
 
-#if defined(POSIX) || defined(PLAYSTATION3) || defined(__LIBRETRO__)
+#if defined(POSIX) || defined(PLAYSTATION3) || defined(PSP2)
 
 // Re-enable some forbidden symbols to avoid clashes with stat.h and unistd.h.
 // Also with clock() in sys/time.h in some Mac OS X SDKs.
@@ -29,55 +29,78 @@
 #define FORBIDDEN_SYMBOL_EXCEPTION_mkdir
 #define FORBIDDEN_SYMBOL_EXCEPTION_getenv
 #define FORBIDDEN_SYMBOL_EXCEPTION_exit		//Needed for IRIX's unistd.h
+#define FORBIDDEN_SYMBOL_EXCEPTION_random
+#define FORBIDDEN_SYMBOL_EXCEPTION_srandom
 
 #include "backends/fs/posix/posix-fs.h"
 #include "backends/fs/stdiostream.h"
 #include "common/algorithm.h"
 
-#if defined(__LIBRETRO__)
-#include "../../platform/libretro/libretro-common/include/retro_dirent.h"
-#include "../../platform/libretro/libretro-common/include/retro_stat.h"
-#include "../../platform/libretro/libretro-common/include/file/file_path.h"
-#else
 #include <sys/param.h>
 #include <sys/stat.h>
+#ifdef MACOSX
+#include <sys/types.h>
+#endif
+#ifdef PSP2
+#include "backends/fs/psp2/psp2-dirent.h"
+#define mkdir sceIoMkdir
+#else
 #include <dirent.h>
 #endif
 #include <stdio.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <unistd.h>
 
 #ifdef __OS2__
 #define INCL_DOS
 #include <os2.h>
 #endif
 
+#if defined(__ANDROID__) && !defined(ANDROIDSDL)
+#include "backends/platform/android/jni-android.h"
+#endif
+
+bool POSIXFilesystemNode::exists() const {
+	return access(_path.c_str(), F_OK) == 0;
+}
+
+bool POSIXFilesystemNode::isReadable() const {
+	return access(_path.c_str(), R_OK) == 0;
+}
+
+bool POSIXFilesystemNode::isWritable() const {
+	return access(_path.c_str(), W_OK) == 0;
+}
 
 void POSIXFilesystemNode::setFlags() {
-#if defined(__LIBRETRO__)
-   const char *fspath = _path.c_str();
-
-   _isValid     = path_is_valid(fspath);
-   _isDirectory = path_is_directory(fspath);
-#else
 	struct stat st;
 
 	_isValid = (0 == stat(_path.c_str(), &st));
 	_isDirectory = _isValid ? S_ISDIR(st.st_mode) : false;
-#endif
 }
 
 POSIXFilesystemNode::POSIXFilesystemNode(const Common::String &p) {
 	assert(p.size() > 0);
 
+#ifdef PSP2
+	if (p == "/") {
+		_isDirectory = true;
+		_isValid = false;
+		_path = p;
+		_displayName = p;
+		return;
+	}
+#endif
+
 	// Expand "~/" to the value of the HOME env variable
-	if (p.hasPrefix("~/")) {
+	if (p.hasPrefix("~/") || p == "~") {
 		const char *home = getenv("HOME");
 		if (home != NULL && strlen(home) < MAXPATHLEN) {
 			_path = home;
-			// Skip over the tilda.  We know that p contains at least
-			// two chars, so this is safe:
-			_path += p.c_str() + 1;
+			// Skip over the tilda.
+			if (p.size() > 1)
+				_path += p.c_str() + 1;
 		}
 	} else {
 		_path = p;
@@ -160,41 +183,40 @@ bool POSIXFilesystemNode::getChildren(AbstractFSList &myList, ListMode mode, boo
 		return true;
 	}
 #endif
+#ifdef PSP2
+	if (_path == "/") {
+		POSIXFilesystemNode *entry1 = new POSIXFilesystemNode("ux0:");
+		myList.push_back(entry1);
+		POSIXFilesystemNode *entry2 = new POSIXFilesystemNode("uma0:");
+		myList.push_back(entry2);
+		return true;
+	}
+#endif
 
-#if defined(__LIBRETRO__)
-	struct RDIR *dirp = retro_opendir(_path.c_str());
-#else
+#if defined(__ANDROID__) && !defined(ANDROIDSDL)
+	if (_path == "/") {
+		Common::Array<Common::String> list = JNI::getAllStorageLocations();
+		for (Common::Array<Common::String>::const_iterator it = list.begin(), end = list.end(); it != end; ++it) {
+			POSIXFilesystemNode *entry = new POSIXFilesystemNode();
+
+			entry->_isDirectory = true;
+			entry->_isValid = true;
+			entry->_displayName = *it;
+			++it;
+			entry->_path = *it;
+			myList.push_back(entry);
+		}
+		return true;
+	}
+#endif
+
 	DIR *dirp = opendir(_path.c_str());
 	struct dirent *dp;
-#endif
 
 	if (dirp == NULL)
 		return false;
 
 	// loop over dir entries using readdir
-#if defined(__LIBRETRO__)
-	while ((retro_readdir(dirp)))
-   {
-      const char *d_name = retro_dirent_get_name(dirp);
-
-      // Skip 'invisible' files if necessary
-      if (d_name[0] == '.' && !hidden)
-         continue;
-      // Skip '.' and '..' to avoid cycles
-      if ((d_name[0] == '.' && d_name[1] == 0) || (d_name[0] == '.' && d_name[1] == '.'))
-         continue;
-
-      // Start with a clone of this node, with the correct path set
-      POSIXFilesystemNode entry(*this);
-      entry._displayName = d_name;
-
-      if (_path.lastChar() != '/')
-         entry._path += '/';
-      entry._path       += entry._displayName;
-
-      entry._isValid     = true;
-      entry._isDirectory = retro_dirent_is_dir(dirp, entry._path.c_str());
-#else
 	while ((dp = readdir(dirp)) != NULL) {
 		// Skip 'invisible' files if necessary
 		if (dp->d_name[0] == '.' && !hidden) {
@@ -238,26 +260,20 @@ bool POSIXFilesystemNode::getChildren(AbstractFSList &myList, ListMode mode, boo
 			}
 		}
 #endif
-#endif
 
+		// Skip files that are invalid for some reason (e.g. because we couldn't
+		// properly stat them).
+		if (!entry._isValid)
+			continue;
 
-      // Skip files that are invalid for some reason (e.g. because we couldn't
-      // properly stat them).
-      if (!entry._isValid)
-         continue;
+		// Honor the chosen mode
+		if ((mode == Common::FSNode::kListFilesOnly && entry._isDirectory) ||
+			(mode == Common::FSNode::kListDirectoriesOnly && !entry._isDirectory))
+			continue;
 
-      // Honor the chosen mode
-      if ((mode == Common::FSNode::kListFilesOnly && entry._isDirectory) ||
-            (mode == Common::FSNode::kListDirectoriesOnly && !entry._isDirectory))
-         continue;
-
-      myList.push_back(new POSIXFilesystemNode(entry));
-   }
-#if defined(__LIBRETRO__)
-	retro_closedir(dirp);
-#else
+		myList.push_back(new POSIXFilesystemNode(entry));
+	}
 	closedir(dirp);
-#endif
 
 	return true;
 }
@@ -267,9 +283,13 @@ AbstractFSNode *POSIXFilesystemNode::getParent() const {
 		return 0;	// The filesystem root has no parent
 
 #ifdef __OS2__
-    if (_path.size() == 3 && _path.hasSuffix(":/"))
-        // This is a root directory of a drive
-        return makeNode("/");   // return a virtual root for a list of drives
+	if (_path.size() == 3 && _path.hasSuffix(":/"))
+		// This is a root directory of a drive
+		return makeNode("/");   // return a virtual root for a list of drives
+#endif
+#ifdef PSP2
+	if (_path.hasSuffix(":"))
+		return makeNode("/");
 #endif
 
 	const char *start = _path.c_str();
@@ -299,52 +319,16 @@ Common::WriteStream *POSIXFilesystemNode::createWriteStream() {
 	return StdioStream::makeFromPath(getPath(), true);
 }
 
-bool POSIXFilesystemNode::create(bool isDir) {
-	bool success;
-
-	if (isDir) {
-#if defined(__LIBRETRO__)
-		success = mkdir_norecurse(_path.c_str());
-#else
-		success = mkdir(_path.c_str(), 0755) == 0;
-#endif
-	} else {
-		int fd = open(_path.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0755);
-		success = fd >= 0;
-
-		if (fd >= 0) {
-			close(fd);
-		}
-	}
-
-	if (success) {
+bool POSIXFilesystemNode::createDirectory() {
+	if (mkdir(_path.c_str(), 0755) == 0)
 		setFlags();
-		if (_isValid) {
-			if (_isDirectory != isDir) warning("failed to create %s: got %s", isDir ? "directory" : "file", _isDirectory ? "directory" : "file");
-			return _isDirectory == isDir;
-		}
 
-		warning("POSIXFilesystemNode: %s() was a success, but stat indicates there is no such %s",
-			isDir ? "mkdir" : "creat", isDir ? "directory" : "file");
-		return false;
-	}
-
-	return false;
+	return _isValid && _isDirectory;
 }
 
 namespace Posix {
 
 bool assureDirectoryExists(const Common::String &dir, const char *prefix) {
-#if defined(__LIBRETRO__)
-	// Check whether the prefix exists if one is supplied.
-	if (prefix)
-   {
-		if (!path_is_valid(prefix))
-			return false;
-		else if (!path_is_directory(prefix))
-			return false;
-	}
-#else
 	struct stat sb;
 
 	// Check whether the prefix exists if one is supplied.
@@ -355,7 +339,6 @@ bool assureDirectoryExists(const Common::String &dir, const char *prefix) {
 			return false;
 		}
 	}
-#endif
 
 	// Obtain absolute path.
 	Common::String path;
@@ -386,20 +369,6 @@ bool assureDirectoryExists(const Common::String &dir, const char *prefix) {
 			*cur = '\0';
 		}
 
-#if defined(__LIBRETRO__)
-		if (!mkdir_norecurse(path.c_str()))
-      {
-         if (errno == EEXIST)
-         {
-            if (!path_is_valid(path.c_str()))
-               return false;
-            else if (!path_is_directory(path.c_str()))
-               return false;
-         }
-         else
-            return false;
-      }
-#else
 		if (mkdir(path.c_str(), 0755) != 0) {
 			if (errno == EEXIST) {
 				if (stat(path.c_str(), &sb) != 0) {
@@ -411,7 +380,6 @@ bool assureDirectoryExists(const Common::String &dir, const char *prefix) {
 				return false;
 			}
 		}
-#endif
 
 		*cur = '/';
 	} while (cur++ != end);

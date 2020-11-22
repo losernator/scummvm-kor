@@ -30,6 +30,7 @@
 #include "common/hashmap.h"
 #include "common/hash-str.h"
 #include "common/func.h"
+#include "common/ptr.h"
 #include "common/scummsys.h"
 
 #include "engines/engine.h"
@@ -39,12 +40,16 @@
 
 #include "adl/console.h"
 #include "adl/disk.h"
+#include "adl/sound.h"
+#include "adl/detection.h"
 
 namespace Common {
 class ReadStream;
+class WriteStream;
 class SeekableReadStream;
 class File;
 struct Event;
+class RandomSource;
 }
 
 namespace Adl {
@@ -52,7 +57,6 @@ namespace Adl {
 class Console;
 class Display;
 class GraphicsMan;
-class Speaker;
 struct AdlGameDescription;
 class ScriptEnv;
 
@@ -84,7 +88,8 @@ struct Room {
 	Room() :
 			description(0),
 			picture(0),
-			curPicture(0) {
+			curPicture(0),
+			isFirstTime(true) {
 		memset(connections, 0, sizeof(connections));
 	}
 
@@ -112,10 +117,19 @@ public:
 	ScriptEnv(const Command &cmd, byte room, byte verb, byte noun) :
 			_cmd(cmd), _room(room), _verb(verb), _noun(noun), _ip(0) { }
 
+	virtual ~ScriptEnv() { }
+
+	enum kOpType {
+		kOpTypeDone,
+		kOpTypeCond,
+		kOpTypeAct
+	};
+
 	byte op() const { return _cmd.script[_ip]; }
+	virtual kOpType getOpType() const = 0;
 	// We keep this 1-based for easier comparison with the original engine
 	byte arg(uint i) const { return _cmd.script[_ip + i]; }
-	void skip(uint i) { _ip += i; }
+	virtual void next(uint numArgs) = 0;
 
 	bool isMatch() const {
 		return (_cmd.room == IDI_ANY || _cmd.room == _room) &&
@@ -123,15 +137,15 @@ public:
 		       (_cmd.noun == IDI_ANY || _cmd.noun == _noun);
 	}
 
-	byte getCondCount() const { return _cmd.numCond; }
-	byte getActCount() const { return _cmd.numAct; }
 	byte getNoun() const { return _noun; }
 	const Command &getCommand() const { return _cmd; }
+
+protected:
+	byte _ip;
 
 private:
 	const Command &_cmd;
 	const byte _room, _verb, _noun;
-	byte _ip;
 };
 
 enum {
@@ -143,14 +157,17 @@ enum {
 struct Item {
 	byte id;
 	byte noun;
+	byte region;
 	byte room;
 	byte picture;
-	bool isLineArt;
+	bool isShape;
 	Common::Point position;
 	int state;
 	byte description;
 	Common::Array<byte> roomPictures;
 	bool isOnScreen;
+
+	Item() : id(0), noun(0), region(0), room(0), picture(0), isShape(false), state(0), description(0), isOnScreen(false) { }
 };
 
 struct Time {
@@ -159,18 +176,30 @@ struct Time {
 	Time() : hours(12), minutes(0) { }
 };
 
+struct RoomState {
+	byte picture;
+	byte isFirstTime;
+};
+
+struct Region {
+	Common::Array<byte> vars;
+	Common::Array<RoomState> rooms;
+};
+
 struct State {
+	Common::Array<Region> regions;
 	Common::Array<Room> rooms;
 	Common::List<Item> items;
 	Common::Array<byte> vars;
 
+	byte region, prevRegion;
 	byte room;
 	byte curPicture;
 	uint16 moves;
 	bool isDark;
 	Time time;
 
-	State() : room(1), curPicture(0), moves(1), isDark(false) { }
+	State() : region(0), prevRegion(0), room(1), curPicture(0), moves(1), isDark(false) { }
 };
 
 typedef Common::List<Command> Commands;
@@ -214,6 +243,7 @@ public:
 	virtual ~AdlEngine();
 
 	bool pollEvent(Common::Event &event) const;
+	void bell(uint count = 1) const;
 
 protected:
 	AdlEngine(OSystem *syst, const AdlGameDescription *gd);
@@ -221,7 +251,14 @@ protected:
 	// Engine
 	Common::Error loadGameState(int slot);
 	Common::Error saveGameState(int slot, const Common::String &desc);
+	bool canSaveGameStateCurrently();
 
+	Common::String getDiskImageName(byte volume) const { return Adl::getDiskImageName(*_gameDescription, volume); }
+	GameType getGameType() const { return Adl::getGameType(*_gameDescription); }
+	GameVersion getGameVersion() const { return Adl::getGameVersion(*_gameDescription); }
+	virtual void gameLoop();
+	virtual void loadState(Common::ReadStream &stream);
+	virtual void saveState(Common::WriteStream &stream);
 	Common::String readString(Common::ReadStream &stream, byte until = 0) const;
 	Common::String readStringAt(Common::SeekableReadStream &stream, uint offset, byte until = 0) const;
 	void openFile(Common::File &file, const Common::String &name) const;
@@ -232,64 +269,87 @@ protected:
 	virtual Common::String getItemDescription(const Item &item) const;
 	void delay(uint32 ms) const;
 
+	virtual Common::String getLine();
 	Common::String inputString(byte prompt = 0) const;
 	byte inputKey(bool showCursor = true) const;
+	void getInput(uint &verb, uint &noun);
 
 	virtual Common::String formatVerbError(const Common::String &verb) const;
 	virtual Common::String formatNounError(const Common::String &verb, const Common::String &noun) const;
 	void loadWords(Common::ReadStream &stream, WordMap &map, Common::StringArray &pri) const;
 	void readCommands(Common::ReadStream &stream, Commands &commands);
+	void removeCommand(Commands &commands, uint idx);
+	Command &getCommand(Commands &commands, uint idx);
 	void checkInput(byte verb, byte noun);
 	virtual bool isInputValid(byte verb, byte noun, bool &is_any);
 	virtual bool isInputValid(const Commands &commands, byte verb, byte noun, bool &is_any);
+	virtual void applyRoomWorkarounds(byte roomNr) { }
+	virtual void applyRegionWorkarounds() { }
 
 	virtual void setupOpcodeTables();
 	virtual void initState();
+	virtual void switchRoom(byte roomNr);
 	virtual byte roomArg(byte room) const;
 	virtual void advanceClock() { }
 	void loadDroppedItemOffsets(Common::ReadStream &stream, byte count);
 
 	// Opcodes
-	int o1_isItemInRoom(ScriptEnv &e);
-	int o1_isMovesGT(ScriptEnv &e);
-	int o1_isVarEQ(ScriptEnv &e);
-	int o1_isCurPicEQ(ScriptEnv &e);
-	int o1_isItemPicEQ(ScriptEnv &e);
+	typedef Common::SharedPtr<Common::Functor1<ScriptEnv &, int> > Opcode;
 
-	int o1_varAdd(ScriptEnv &e);
-	int o1_varSub(ScriptEnv &e);
-	int o1_varSet(ScriptEnv &e);
-	int o1_listInv(ScriptEnv &e);
-	int o1_moveItem(ScriptEnv &e);
-	int o1_setRoom(ScriptEnv &e);
-	int o1_setCurPic(ScriptEnv &e);
-	int o1_setPic(ScriptEnv &e);
-	int o1_printMsg(ScriptEnv &e);
-	int o1_setLight(ScriptEnv &e);
-	int o1_setDark(ScriptEnv &e);
-	int o1_save(ScriptEnv &e);
-	int o1_restore(ScriptEnv &e);
-	int o1_restart(ScriptEnv &e);
-	int o1_quit(ScriptEnv &e);
-	int o1_placeItem(ScriptEnv &e);
-	int o1_setItemPic(ScriptEnv &e);
-	int o1_resetPic(ScriptEnv &e);
-	template <Direction D>
-	int o1_goDirection(ScriptEnv &e);
-	int o1_takeItem(ScriptEnv &e);
-	int o1_dropItem(ScriptEnv &e);
-	int o1_setRoomPic(ScriptEnv &e);
+	template <class T>
+	Opcode opcode(int (T::*f)(ScriptEnv &)) {
+		return Opcode(new Common::Functor1Mem<ScriptEnv &, int, T>(static_cast<T *>(this), f));
+	}
+
+	virtual int o_isItemInRoom(ScriptEnv &e);
+	virtual int o_isMovesGT(ScriptEnv &e);
+	virtual int o_isVarEQ(ScriptEnv &e);
+	virtual int o_isCurPicEQ(ScriptEnv &e);
+	virtual int o_isItemPicEQ(ScriptEnv &e);
+
+	virtual int o_varAdd(ScriptEnv &e);
+	virtual int o_varSub(ScriptEnv &e);
+	virtual int o_varSet(ScriptEnv &e);
+	virtual int o_listInv(ScriptEnv &e);
+	virtual int o_moveItem(ScriptEnv &e);
+	virtual int o_setRoom(ScriptEnv &e);
+	virtual int o_setCurPic(ScriptEnv &e);
+	virtual int o_setPic(ScriptEnv &e);
+	virtual int o_printMsg(ScriptEnv &e);
+	virtual int o_setLight(ScriptEnv &e);
+	virtual int o_setDark(ScriptEnv &e);
+	virtual int o_save(ScriptEnv &e);
+	virtual int o_restore(ScriptEnv &e);
+	virtual int o_restart(ScriptEnv &e);
+	virtual int o_quit(ScriptEnv &e);
+	virtual int o_placeItem(ScriptEnv &e);
+	virtual int o_setItemPic(ScriptEnv &e);
+	virtual int o_resetPic(ScriptEnv &e);
+	virtual int o_takeItem(ScriptEnv &e);
+	virtual int o_dropItem(ScriptEnv &e);
+	virtual int o_setRoomPic(ScriptEnv &e);
+
+	virtual int goDirection(ScriptEnv &e, Direction D);
+	int o_goNorth(ScriptEnv &e) { return goDirection(e, IDI_DIR_NORTH); }
+	int o_goSouth(ScriptEnv &e) { return goDirection(e, IDI_DIR_SOUTH); }
+	int o_goEast(ScriptEnv &e) { return goDirection(e, IDI_DIR_EAST); }
+	int o_goWest(ScriptEnv &e) { return goDirection(e, IDI_DIR_WEST); }
+	int o_goUp(ScriptEnv &e) { return goDirection(e, IDI_DIR_UP); }
+	int o_goDown(ScriptEnv &e) { return goDirection(e, IDI_DIR_DOWN); }
 
 	// Graphics
-	void clearScreen() const;
 	void drawPic(byte pic, Common::Point pos = Common::Point()) const;
 
 	// Sound
-	void bell(uint count = 1) const;
+	bool playTones(const Tones &tones, bool isMusic, bool allowSkip = false) const;
 
 	// Game state functions
+	const Region &getRegion(uint i) const;
+	Region &getRegion(uint i);
 	const Room &getRoom(uint i) const;
 	Room &getRoom(uint i);
+	const Region &getCurRegion() const;
+	Region &getCurRegion();
 	const Room &getCurRoom() const;
 	Room &getCurRoom();
 	const Item &getItem(uint i) const;
@@ -297,11 +357,12 @@ protected:
 	byte getVar(uint i) const;
 	void setVar(uint i, byte value);
 	virtual void takeItem(byte noun);
-	void dropItem(byte noun);
+	virtual void dropItem(byte noun);
 	bool matchCommand(ScriptEnv &env) const;
 	void doActions(ScriptEnv &env);
 	bool doOneCommand(const Commands &commands, byte verb, byte noun);
 	void doAllCommands(const Commands &commands, byte verb, byte noun);
+	virtual ScriptEnv *createScriptEnv(const Command &cmd, byte room, byte verb, byte noun);
 
 	// Debug functions
 	static Common::String toAscii(const Common::String &str);
@@ -317,11 +378,10 @@ protected:
 
 	Display *_display;
 	GraphicsMan *_graphics;
-	Speaker *_speaker;
+	bool _textMode;
 
 	// Opcodes
-	typedef Common::Functor1<ScriptEnv &, int> Opcode;
-	Common::Array<const Opcode *> _condOpcodes, _actOpcodes;
+	Common::Array<Opcode> _condOpcodes, _actOpcodes;
 	// Message strings in data file
 	Common::Array<DataBlockPtr> _messages;
 	// Picture data
@@ -359,35 +419,43 @@ protected:
 	// Game state
 	State _state;
 
-	bool _isRestarting, _isRestoring;
-	bool _skipOneCommand;
+	uint _linesPrinted;
+	bool _isRestarting, _isRestoring, _isQuitting;
+	bool _canSaveNow, _canRestoreNow;
+	bool _abortScript;
+	Common::RandomSource *_random;
+
+	const AdlGameDescription *_gameDescription;
+
+	mutable Common::File *_inputScript;
+	mutable uint _scriptDelay;
+	mutable bool _scriptPaused;
 
 private:
-	virtual void runIntro() const { }
+	virtual void runIntro() { }
 	virtual void init() = 0;
 	virtual void initGameState() = 0;
 	virtual void drawItems() = 0;
 	virtual void drawItem(Item &item, const Common::Point &pos) = 0;
 	virtual void loadRoom(byte roomNr) = 0;
 	virtual void showRoom() = 0;
-
+	virtual void switchRegion(byte region) { }
+	void runScript(const char *filename) const;
+	void stopScript() const;
+	void setScriptDelay(uint scriptDelay) const { _scriptDelay = scriptDelay; }
+	Common::String getScriptLine() const;
 	// Engine
 	Common::Error run();
 	bool hasFeature(EngineFeature f) const;
 	bool canLoadGameStateCurrently();
-	bool canSaveGameStateCurrently();
 
 	// Text input
 	byte convertKey(uint16 ascii) const;
-	Common::String getLine() const;
 	Common::String getWord(const Common::String &line, uint &index) const;
-	void getInput(uint &verb, uint &noun);
 
 	Console *_console;
 	GUI::Debugger *getDebugger() { return _console; }
-	const AdlGameDescription *_gameDescription;
 	byte _saveVerb, _saveNoun, _restoreVerb, _restoreNoun;
-	bool _canSaveNow, _canRestoreNow;
 };
 
 } // End of namespace Adl

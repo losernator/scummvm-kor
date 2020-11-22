@@ -57,7 +57,7 @@ int32 opcodeType0() {
 
 	case 5:
 		index = saveOpcodeVar;
-		// No break on purpose
+		// fall through
 	case 1: {
 		uint8 *address = 0;
 		int type = getByteFromScript();
@@ -137,7 +137,7 @@ int32 opcodeType1()	{
 
 	case 5:
 		offset = saveOpcodeVar;
-		//no break on purpose
+		// fall through
 	case 1: {
 		int var_A = 0;
 
@@ -227,7 +227,7 @@ int32 opcodeType2() {
 	switch (currentScriptOpcodeType) {
 	case 5:
 		index = saveOpcodeVar;
-		// No break on purpose
+		// fall through
 	case 1: {
 		uint8* adresse = NULL;
 		int type = getByteFromScript();
@@ -264,6 +264,8 @@ int32 opcodeType2() {
 
 	}
 	break;
+	default:
+		break;
 	}
 
 	return 0;
@@ -312,6 +314,9 @@ int32 opcodeType4() {		// test
 	case 5:
 		if (var2 >= var1)
 			boolVar = 1;
+		break;
+
+	default:
 		break;
 	}
 
@@ -398,6 +403,9 @@ int32 opcodeType5() {
 	case 7:
 		currentScriptPtr->scriptOffset = newSi;	//always
 		break;
+
+	default:
+		break;
 	}
 
 	return (0);
@@ -441,6 +449,8 @@ int32 opcodeType3()	{	// math
 		pushVar(pop2 & pop1);
 		return (0);
 
+	default:
+		break;
 	}
 
 	return 0;

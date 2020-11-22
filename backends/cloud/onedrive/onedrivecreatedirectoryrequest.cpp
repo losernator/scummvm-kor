@@ -31,7 +31,7 @@
 namespace Cloud {
 namespace OneDrive {
 
-#define ONEDRIVE_API_SPECIAL_APPROOT "https://api.onedrive.com/v1.0/drive/special/approot"
+#define ONEDRIVE_API_SPECIAL_APPROOT "https://graph.microsoft.com/v1.0/drive/special/approot"
 
 OneDriveCreateDirectoryRequest::OneDriveCreateDirectoryRequest(OneDriveStorage *storage, Common::String path, Storage::BoolCallback cb, Networking::ErrorCallback ecb):
 	Networking::Request(nullptr, ecb), _storage(storage), _path(path), _boolCallback(cb),
@@ -72,8 +72,8 @@ void OneDriveCreateDirectoryRequest::start() {
 		url += ":/" + ConnMan.urlEncode(parent) + ":";
 	url += "/children";
 	Networking::JsonCallback innerCallback = new Common::Callback<OneDriveCreateDirectoryRequest, Networking::JsonResponse>(this, &OneDriveCreateDirectoryRequest::responseCallback);
-	Networking::ErrorCallback errorCallback = new Common::Callback<OneDriveCreateDirectoryRequest, Networking::ErrorResponse>(this, &OneDriveCreateDirectoryRequest::errorCallback);
-	Networking::CurlJsonRequest *request = new OneDriveTokenRefresher(_storage, innerCallback, errorCallback, url.c_str());
+	Networking::ErrorCallback errorResponseCallback = new Common::Callback<OneDriveCreateDirectoryRequest, Networking::ErrorResponse>(this, &OneDriveCreateDirectoryRequest::errorCallback);
+	Networking::CurlJsonRequest *request = new OneDriveTokenRefresher(_storage, innerCallback, errorResponseCallback, url.c_str());
 	request->addHeader("Authorization: Bearer " + _storage->accessToken());
 	request->addHeader("Content-Type: application/json");
 
@@ -96,7 +96,7 @@ void OneDriveCreateDirectoryRequest::responseCallback(Networking::JsonResponse r
 	if (response.request)
 		_date = response.request->date();
 
-	Networking::ErrorResponse error(this);
+	Networking::ErrorResponse error(this, "OneDriveCreateDirectoryRequest::responseCallback: unknown error");
 	Networking::CurlJsonRequest *rq = (Networking::CurlJsonRequest *)response.request;
 	if (rq && rq->getNetworkReadStream())
 		error.httpResponseCode = rq->getNetworkReadStream()->httpResponseCode();

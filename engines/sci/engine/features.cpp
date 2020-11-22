@@ -77,7 +77,7 @@ bool GameFeatures::autoDetectSoundType() {
 	if (!addr.getSegment())
 		return false;
 
-	uint16 offset = addr.getOffset();
+	uint32 offset = addr.getOffset();
 	Script *script = _segMan->getScript(addr.getSegment());
 	uint16 intParam = 0xFFFF;
 	bool foundTarget = false;
@@ -143,8 +143,17 @@ SciVersion GameFeatures::detectDoSoundType() {
 			//  SCI0LATE. Although the last SCI0EARLY game (lsl2) uses SCI0LATE resources
 			_doSoundType = g_sci->getResMan()->detectEarlySound() ? SCI_VERSION_0_EARLY : SCI_VERSION_0_LATE;
 #ifdef ENABLE_SCI32
+		} else if (getSciVersion() >= SCI_VERSION_2_1_MIDDLE &&
+				   g_sci->getGameId() != GID_SQ6 &&
+				   // Assuming MGDX uses SCI2.1early sound mode since SQ6 does
+				   // and it was released earlier, but not verified (Phar Lap
+				   // Windows-only release)
+				   g_sci->getGameId() != GID_MOTHERGOOSEHIRES) {
+			_doSoundType = SCI_VERSION_2_1_MIDDLE;
 		} else if (getSciVersion() >= SCI_VERSION_2_1_EARLY) {
 			_doSoundType = SCI_VERSION_2_1_EARLY;
+		} else if (getSciVersion() >= SCI_VERSION_2) {
+			_doSoundType = SCI_VERSION_2;
 #endif
 		} else if (SELECTOR(nodePtr) == -1) {
 			// No nodePtr selector, so this game is definitely using newer
@@ -224,7 +233,7 @@ bool GameFeatures::autoDetectLofsType(Common::String gameSuperClassName, int met
 	if (!addr.getSegment())
 		return false;
 
-	uint16 offset = addr.getOffset();
+	uint32 offset = addr.getOffset();
 	Script *script = _segMan->getScript(addr.getSegment());
 
 	while (true) {
@@ -323,7 +332,7 @@ bool GameFeatures::autoDetectGfxFunctionsType(int methodNum) {
 	if (!addr.getSegment())
 		return false;
 
-	uint16 offset = addr.getOffset();
+	uint32 offset = addr.getOffset();
 	Script *script = _segMan->getScript(addr.getSegment());
 
 	while (true) {
@@ -448,7 +457,7 @@ SciVersion GameFeatures::detectMessageFunctionType() {
 	// Only v2 Message resources use the kGetMessage kernel function.
 	// v3-v5 use the kMessage kernel function.
 
-	if (READ_SCI11ENDIAN_UINT32(res->data) / 1000 == 2)
+	if (res->getUint32SEAt(0) / 1000 == 2)
 		_messageFunctionType = SCI_VERSION_1_LATE;
 	else
 		_messageFunctionType = SCI_VERSION_1_1;
@@ -471,11 +480,12 @@ bool GameFeatures::autoDetectSci21KernelType() {
 		// don't have sounds at all, but they're using a SCI2 kernel
 		if (g_sci->getGameId() == GID_CHEST || g_sci->getGameId() == GID_KQUESTIONS) {
 			_sci21KernelType = SCI_VERSION_2;
-			return true;
+		} else if (g_sci->getGameId() == GID_RAMA && g_sci->isDemo()) {
+			_sci21KernelType = SCI_VERSION_2_1_MIDDLE;
+		} else {
+			warning("autoDetectSci21KernelType(): Sound object not loaded, assuming a SCI2.1 table");
+			_sci21KernelType = SCI_VERSION_2_1_EARLY;
 		}
-
-		warning("autoDetectSci21KernelType(): Sound object not loaded, assuming a SCI2.1 table");
-		_sci21KernelType = SCI_VERSION_2_1_EARLY;
 		return true;
 	}
 
@@ -485,7 +495,7 @@ bool GameFeatures::autoDetectSci21KernelType() {
 	if (!addr.getSegment())
 		return false;
 
-	uint16 offset = addr.getOffset();
+	uint32 offset = addr.getOffset();
 	Script *script = _segMan->getScript(addr.getSegment());
 
 	while (true) {
@@ -534,6 +544,98 @@ SciVersion GameFeatures::detectSci21KernelType() {
 }
 #endif
 
+bool GameFeatures::supportsSpeechWithSubtitles() const {
+	switch (g_sci->getGameId()) {
+	case GID_SQ4:
+	case GID_FREDDYPHARKAS:
+	case GID_ECOQUEST:
+	case GID_LSL6:
+	case GID_LAURABOW2:
+	case GID_KQ6:
+#ifdef ENABLE_SCI32
+	// TODO: SCI3
+	case GID_GK1:
+	case GID_KQ7:
+	case GID_LSL6HIRES:
+	case GID_LSL7:
+	case GID_PQ4:
+	case GID_QFG4:
+	case GID_SQ6:
+	case GID_TORIN:
+#endif
+		return true;
+
+	default:
+		return false;
+	}
+}
+
+bool GameFeatures::audioVolumeSyncUsesGlobals() const {
+	switch (g_sci->getGameId()) {
+	case GID_GK1:
+	case GID_GK2:
+	case GID_HOYLE5:
+	case GID_LSL6HIRES:
+	case GID_LSL7:
+	case GID_PHANTASMAGORIA:
+	case GID_PHANTASMAGORIA2:
+	case GID_RAMA:
+	case GID_TORIN:
+		return true;
+	default:
+		return false;
+	}
+}
+
+MessageTypeSyncStrategy GameFeatures::getMessageTypeSyncStrategy() const {
+	if (getSciVersion() < SCI_VERSION_1_1) {
+		return kMessageTypeSyncStrategyNone;
+	}
+
+	if (getSciVersion() == SCI_VERSION_1_1 && g_sci->isCD()) {
+		return kMessageTypeSyncStrategyDefault;
+	}
+
+#ifdef ENABLE_SCI32
+	switch (g_sci->getGameId()) {
+	// TODO: SCI3
+	case GID_GK1:
+	case GID_PQ4:
+	case GID_QFG4:
+		return g_sci->isCD() ? kMessageTypeSyncStrategyDefault : kMessageTypeSyncStrategyNone;
+
+	case GID_KQ7:
+	case GID_LSL7:
+	case GID_MOTHERGOOSEHIRES:
+	case GID_PHANTASMAGORIA:
+	case GID_SQ6:
+	case GID_TORIN:
+		return kMessageTypeSyncStrategyDefault;
+
+	case GID_LSL6HIRES:
+		return kMessageTypeSyncStrategyLSL6Hires;
+
+	case GID_SHIVERS:
+		return kMessageTypeSyncStrategyShivers;
+
+	case GID_GK2:
+	case GID_PQSWAT:
+	default:
+		break;
+	}
+#endif
+
+	return kMessageTypeSyncStrategyNone;
+}
+
+int GameFeatures::detectPlaneIdBase() {
+	if (getSciVersion() == SCI_VERSION_2 &&
+	    g_sci->getGameId() != GID_PQ4)
+		return 0;
+	else
+		return 20000;
+}
+	
 bool GameFeatures::autoDetectMoveCountType() {
 	// Look up the script address
 	reg_t addr = getDetectionAddr("Motion", SELECTOR(doit));
@@ -541,7 +643,7 @@ bool GameFeatures::autoDetectMoveCountType() {
 	if (!addr.getSegment())
 		return false;
 
-	uint16 offset = addr.getOffset();
+	uint32 offset = addr.getOffset();
 	Script *script = _segMan->getScript(addr.getSegment());
 	bool foundTarget = false;
 
@@ -583,7 +685,6 @@ MoveCountType GameFeatures::detectMoveCountType() {
 		} else {
 			if (!autoDetectMoveCountType()) {
 				error("Move count autodetection failed");
-				_moveCountType = kIncrementMoveCount;	// Most games do this, so best guess
 			}
 		}
 
@@ -604,6 +705,27 @@ bool GameFeatures::useAltWinGMSound() {
 	} else {
 		return false;
 	}
+}
+
+bool GameFeatures::generalMidiOnly() {
+#ifdef ENABLE_SCI32
+	switch (g_sci->getGameId()) {
+	case GID_MOTHERGOOSEHIRES:
+		return true;
+	case GID_KQ7: {
+		if (g_sci->isDemo()) {
+			return false;
+		}
+
+		SoundResource sound(13, g_sci->getResMan(), detectDoSoundType());
+		return (sound.getTrackByType(/* AdLib */ 0) == nullptr);
+	}
+	default:
+		break;
+	}
+#endif
+
+	return false;
 }
 
 // PseudoMouse was added during SCI1
@@ -650,6 +772,56 @@ PseudoMouseAbilityType GameFeatures::detectPseudoMouseAbility() {
 		}
 	}
 	return _pseudoMouseAbility;
+}
+
+// GetLongest(), which calculates the number of characters in a string that can fit
+//  within a width, had two subtle changes which started to appear in interpreters
+//  in late 1990. An off-by-one bug was fixed where the character that exceeds the
+//  width would be applied to the result if a space character hadn't been reached.
+//  The pixel width test was also changed from a greater than or equals to greater
+//  than, but again only if a space character hadn't been reached.
+//
+// The notebook in LB1 (bug #10000) is currently the only known script that depended
+//  on the original behavior. This appears to be an isolated fix to an interpreter
+//  edge case, a corresponding script change to allow autodetection hasn't been found.
+//
+// The Japanese interpreters have their own versions of GetLongest() to support
+//  double byte characters which seems to be how QFG1 Japanese reintroduced it
+//  even though its interpreter is later than SQ3/LSL3 multilingual versions.
+bool GameFeatures::useEarlyGetLongestTextCalculations() const {
+	switch (getSciVersion()) {
+
+	// All SCI0, confirmed:
+	// - LSL2 English PC 1.000.011
+	// - LB1 PC 1.000.046
+	// - ICEMAN PC 1.033
+	// - SQ3 English PC 1.018
+	// - PQ2 Japanese 1.000.052
+	case SCI_VERSION_0_EARLY:
+	case SCI_VERSION_0_LATE:
+		return true;
+
+	// SCI01: confirmed KQ1 and QFG1 Japanese,
+	// fixed in SQ3 and LSL3 multilingual PC
+	case SCI_VERSION_01:
+		return (g_sci->getGameId() == GID_KQ1 || g_sci->getGameId() == GID_QFG1);
+
+	// QFG2, confirmed 1.000 and 1.105 (first and last versions)
+	case SCI_VERSION_1_EGA_ONLY:
+		return true;
+
+	// SCI1 Early: just KQ5 English PC versions,
+	// confirmed fixed in:
+	// - LSL1 Demo
+	// - XMAS1990 EGA
+	// - SQ4 1.052
+	case SCI_VERSION_1_EARLY:
+		return (g_sci->getGameId() == GID_KQ5);
+
+	// Fixed in all other versions
+	default:
+		return false;
+	}
 }
 
 } // End of namespace Sci

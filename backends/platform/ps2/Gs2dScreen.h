@@ -61,7 +61,7 @@ public:
 	void copyScreenRect(const uint8 *buf, int pitch, int x, int y, int w, int h);
 	void setPalette(const uint8 *pal, uint8 start, uint16 num);
 	void updateScreen(void);
-	void grabPalette(uint8 *pal, uint8 start, uint16 num);
+	void grabPalette(uint8 *pal, uint8 start, uint16 num) const;
 	//- overlay routines
 	void copyOverlayRect(const byte *buf, uint16 pitch, uint16 x, uint16 y, uint16 w, uint16 h);
 	void grabOverlay(byte *buf, uint16 pitch);
@@ -76,7 +76,7 @@ public:
 	void setMouseOverlay(const uint8 *buf, uint16 width, uint16 height, uint16 hotSpotX, uint16 hotSpotY, uint8 transpCol);
 	void showMouse(bool show);
 	void setMouseXy(int16 x, int16 y);
-	void setShakePos(int shake);
+	void setShakePos(int shakeXOffset, int shakeYOffset);
 
 	void playAnim(void);
 	void wantAnim(bool runIt);
@@ -123,7 +123,8 @@ private:
 	uint32 _mouseScaleX, _mouseScaleY;
 	uint8  _mTraCol;
 
-	int _shakePos;
+	int _shakeXOffset;
+	int _shakeYOffset;
 
 	bool _showMouse, _showOverlay, _screenChanged, _overlayChanged, _clutChanged;
 	uint16 *_overlayBuf;

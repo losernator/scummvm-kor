@@ -83,9 +83,6 @@ MacOSXUpdateManager::MacOSXUpdateManager() {
 	// Set the target of the new menu item
 	[updateMenuItem setTarget:sparkleUpdater];
 
-	// Finally give up our references to the objects
-	[menuItem release];
-
 	if (!ConfMan.hasKey("updates_check")
 			|| ConfMan.getInt("updates_check") == Common::UpdateManager::kUpdateIntervalNotSupported) {
 		setAutomaticallyChecksForUpdates(kUpdateStateDisabled);
@@ -103,7 +100,7 @@ void MacOSXUpdateManager::checkForUpdates() {
 	if (sparkleUpdater == nullptr)
 		return;
 
-	[sparkleUpdater checkForUpdatesInBackground];
+	[sparkleUpdater checkForUpdates:nil];
 }
 
 void MacOSXUpdateManager::setAutomaticallyChecksForUpdates(UpdateManager::UpdateState state) {

@@ -200,7 +200,7 @@ Common::Error GnapEngine::run() {
 #else
 	Graphics::PixelFormat format = Graphics::PixelFormat(4, 8, 8, 8, 8, 24, 16, 8, 0);
 #endif
-	initGraphics(800, 600, true, &format);
+	initGraphics(800, 600, &format);
 
 	// We do not support color conversion yet
 	if (_system->getScreenFormat() != format)
@@ -233,7 +233,7 @@ Common::Error GnapEngine::run() {
 		error("Could not load ufos.exe");
 
 #ifdef USE_FREETYPE2
-	Common::SeekableReadStream *stream = _exe->getResource(Common::kPEFont, 2000);
+	Common::SeekableReadStream *stream = _exe->getResource(Common::kWinFont, 2000);
 	_font = Graphics::loadTTFFont(*stream, 24);
 	if (!_font)
 		warning("Unable to load font");
@@ -248,7 +248,7 @@ Common::Error GnapEngine::run() {
 	_sequenceCache = new SequenceCache(_dat);
 	_gameSys = new GameSys(this);
 	_soundMan = new SoundMan(this);
-	_debugger = new Debugger(this);
+	_debugger = new Debugger();
 	_gnap = new PlayerGnap(this);
 	_plat = new PlayerPlat(this);
 
@@ -547,9 +547,7 @@ void GnapEngine::setCursor(int cursorIndex) {
 		Graphics::WinCursorGroup *cursorGroup = Graphics::WinCursorGroup::createCursorGroup(*_exe, Common::WinResourceID(cursorName));
 		if (cursorGroup) {
 			Graphics::Cursor *cursor = cursorGroup->cursors[0].cursor;
-			CursorMan.replaceCursor(cursor->getSurface(), cursor->getWidth(), cursor->getHeight(),
-				cursor->getHotspotX(), cursor->getHotspotY(), cursor->getKeyColor());
-			CursorMan.replaceCursorPalette(cursor->getPalette(), 0, 256);
+			CursorMan.replaceCursor(cursor);
 			delete cursorGroup;
 		}
 		_cursorIndex = cursorIndex;
@@ -979,7 +977,7 @@ int GnapEngine::playSoundC() {
 
 	if (!_timers[_soundTimerIndexC]) {
 		_timers[_soundTimerIndexC] = getRandom(50) + 150;
-		soundId = kSoundIdsC[getRandom(7)] ;
+		soundId = kSoundIdsC[getRandom(7)];
 		playSound(soundId | 0x10000, false);
 	}
 	return soundId;

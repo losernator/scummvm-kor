@@ -23,7 +23,8 @@
 #ifndef PLATFORM_3DS_H
 #define PLATFORM_3DS_H
 
-#include <citro3d.h>
+#define FORBIDDEN_SYMBOL_EXCEPTION_time_h
+
 #include "backends/mutex/mutex.h"
 #include "backends/base-backend.h"
 #include "graphics/palette.h"
@@ -41,6 +42,11 @@ namespace _3DS {
 enum {
 	GFX_LINEAR = 0,
 	GFX_NEAREST = 1
+};
+
+enum MagnifyMode {
+	MODE_MAGON,
+	MODE_MAGOFF,
 };
 
 enum InputMode {
@@ -87,6 +93,7 @@ public:
 	virtual void quit();
 
 	virtual Common::String getDefaultConfigFileName();
+	void addSysArchivesToSearchSet(Common::SearchSet &s, int priority) override;
 
 	// Graphics
 	virtual const OSystem::GraphicsMode *getSupportedGraphicsModes() const;
@@ -98,20 +105,21 @@ public:
 	virtual Common::List<Graphics::PixelFormat> getSupportedFormats() const;
 	void initSize(uint width, uint height,
 	              const Graphics::PixelFormat *format = NULL);
-	virtual int getScreenChangeID() const { return 0; };
+	virtual int getScreenChangeID() const { return _screenChangeId; };
 
 	void beginGFXTransaction();
 	OSystem::TransactionError endGFXTransaction();
 	int16 getHeight(){ return _gameHeight; }
 	int16 getWidth(){ return _gameWidth; }
+	float getScaleRatio() const;
 	void setPalette(const byte *colors, uint start, uint num);
-	void grabPalette(byte *colors, uint start, uint num);
+	void grabPalette(byte *colors, uint start, uint num) const;
 	void copyRectToScreen(const void *buf, int pitch, int x, int y, int w,
 	                      int h);
 	Graphics::Surface *lockScreen();
 	void unlockScreen();
 	void updateScreen();
-	void setShakePos(int shakeOffset);
+	void setShakePos(int shakeXOffset, int shakeYOffset);
 	void setFocusRectangle(const Common::Rect &rect);
 	void clearFocusRectangle();
 	void showOverlay();
@@ -123,7 +131,8 @@ public:
 	                       int h);
 	virtual int16 getOverlayHeight();
 	virtual int16 getOverlayWidth();
-	virtual void displayMessageOnOSD(const char *msg);
+	void displayMessageOnOSD(const char *msg) override;
+	void displayActivityIconOnOSD(const Graphics::Surface *icon) override;
 
 	bool showMouse(bool visible);
 	void warpMouse(int x, int y);
@@ -134,12 +143,17 @@ public:
 
 	// Transform point from touchscreen coords into gamescreen coords
 	void transformPoint(touchPosition &point);
+	// Clip point to gamescreen coords
+	void clipPoint(touchPosition &point);
 
 	void setCursorDelta(float deltaX, float deltaY);
 
 	void updateFocus();
+	void updateMagnify();
 	void updateConfig();
 	void updateSize();
+	void setMagnifyMode(MagnifyMode mode);
+	MagnifyMode getMagnifyMode(){ return _magnifyMode; }
 
 private:
 	void initGraphics();
@@ -148,6 +162,7 @@ private:
 	void destroyAudio();
 	void initEvents();
 	void destroyEvents();
+	void runOptionsDialog();
 
 	void flushGameScreen();
 	void flushCursor();
@@ -174,9 +189,18 @@ private:
 	Sprite _gameTopTexture;
 	Sprite _gameBottomTexture;
 	Sprite _overlay;
+	Sprite _activityIcon;
+	Sprite _osdMessage;
 
-	int _screenShakeOffset;
+	enum {
+		kOSDMessageDuration = 800
+	};
+	uint32 _osdMessageEndTime;
+
+	int _screenShakeXOffset;
+	int _screenShakeYOffset;
 	bool _overlayVisible;
+	int _screenChangeId;
 
 	DVLB_s *_dvlb;
 	shaderProgram_s _program;
@@ -214,6 +238,12 @@ private:
 	float _cursorDeltaX, _cursorDeltaY;
 	int _cursorHotspotX, _cursorHotspotY;
 	uint32 _cursorKeyColor;
+
+	// Magnify
+	MagnifyMode _magnifyMode;
+	u16 _magX, _magY;
+	u16 _magWidth, _magHeight;
+	u16 _magCenterX, _magCenterY;
 };
 
 } // namespace _3DS

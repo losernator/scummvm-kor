@@ -26,8 +26,8 @@
 #include "common/array.h"
 #include "common/list.h"
 #include "common/events.h"
-#include "common/archive.h"
 
+#include "graphics/font.h"
 #include "graphics/fontman.h"
 #include "graphics/macgui/macwindow.h"
 
@@ -55,14 +55,41 @@ enum {
 	kPatternLightGray = 5,
 	kPatternDarkGray = 6
 };
+
+enum {
+	kWMModeNone         = 0,
+	kWMModeNoDesktop    = (1 << 0),
+	kWMModeAutohideMenu = (1 << 1),
+	kWMModalMenuMode = (1 << 2)
+};
+
 }
 using namespace MacGUIConstants;
 
 class ManagedSurface;
 
-class Menu;
+class MacMenu;
+class MacTextWindow;
+
+class MacFont;
+
+class MacFontManager;
 
 typedef Common::Array<byte *> MacPatterns;
+
+struct MacPlotData {
+	Graphics::ManagedSurface *surface;
+	MacPatterns *patterns;
+	uint fillType;
+	int thickness;
+	uint bgColor;
+
+	MacPlotData(Graphics::ManagedSurface *s, MacPatterns *p, int f, int t, uint bg) :
+		surface(s), patterns(p), fillType(f), thickness(t), bgColor(bg) {
+	}
+};
+
+void macDrawPixel(int x, int y, int color, void *data);
 
 /**
  * A manager class to handle window creation, destruction,
@@ -80,27 +107,6 @@ public:
 	 */
 	void setScreen(ManagedSurface *screen) { _screen = screen; }
 	/**
-	 * Accessor method to check the presence of built-in fonts.
-	 * @return True if there are bult-in fonts.
-	 */
-	bool hasBuiltInFonts() { return _builtInFonts; }
-	/**
-	 * Retrieve a font from the available ones.
-	 * @param name Name of the desired font.
-	 * @param fallback Fallback policy in case the desired font isn't there.
-	 * @return The requested font or the fallback.
-	 */
-	const Font *getFont(const char *name, FontManager::FontUsage fallback);
-
-	/**
-	 * Return font name from standard ID
-	 * @param id ID of the font
-	 * @param size size of the font
-	 * @return the font name or NULL if ID goes beyond the mapping
-	 */
-	const char *getFontName(int id, int size);
-
-	/**
 	 * Create a window with the given parameters.
 	 * Note that this method allocates the necessary memory for the window.
 	 * @param scrollable True if the window has to be scrollable.
@@ -109,13 +115,45 @@ public:
 	 * @return Pointer to the newly created window.
 	 */
 	MacWindow *addWindow(bool scrollable, bool resizable, bool editable);
+	MacTextWindow *addTextWindow(const MacFont *font, int fgcolor, int bgcolor, int maxWidth, TextAlign textAlignment, MacMenu *menu, bool cursorHandler = true);
+
+	/**
+	 * Adds a window that has already been initialized to the registry.
+	 * Like addWindow, but this doesn't create/allocate the Window.
+	 * @param macWindow the window to be added to the registry
+	 */
+	void addWindowInitialized(MacWindow *macwindow);
+	/**
+	 * Returns the last allocated id
+	 * @return last allocated window id
+	 */
+	int getLastId() { return _lastId; }
+	/**
+	 * Returns the next available id and the increments the internal counter.
+	 * @return next (new) window id that can be used
+	 */
+	int getNextId() { return _lastId++; }
 	/**
 	 * Add the menu to the desktop.
 	 * Note that the returned menu is empty, and therefore must be filled
 	 * afterwards.
 	 * @return Pointer to a new empty menu.
 	 */
-	Menu *addMenu();
+	MacMenu *addMenu();
+
+	void activateMenu();
+
+	bool isMenuActive();
+
+	/**
+	 * Set hot zone where menu appears (works only with autohide menu)
+	 */
+	void setMenuHotzone(const Common::Rect &rect) { _menuHotzone = rect; }
+
+	/**
+	 * Set delay in milliseconds when menu appears (works only with autohide menu)
+	 */
+	void setMenuDelay(int delay) { _menuDelay = delay; }
 	/**
 	 * Set the desired window state to active.
 	 * @param id ID of the window that has to be set to active.
@@ -163,22 +201,45 @@ public:
 	 * @return A MacPatterns object reference with the patterns.
 	 */
 	MacPatterns &getPatterns() { return _patterns; }
-	void drawFilledRoundRect(ManagedSurface *surface, Common::Rect &rect, int arc, int color);
 
 	void pushArrowCursor();
+	void pushBeamCursor();
+	void pushCrossHairCursor();
+	void pushCrossBarCursor();
+	void pushWatchCursor();
 	void popCursor();
+
+	void pauseEngine(bool pause);
+
+	void setMode(uint32 mode) { _mode = mode; }
+
+	void setEnginePauseCallback(void *engine, void (*pauseCallback)(void *engine, bool pause));
+
+	void passPalette(const byte *palette, uint size);
+
+public:
+	MacFontManager *_fontMan;
+	uint32 _mode;
+
+	Common::Point _lastMousePos;
+	Common::Rect _menuHotzone;
+
+	bool _menuTimerActive;
+
+	int _colorBlack, _colorWhite;
 
 private:
 	void drawDesktop();
-	void loadFonts();
 
 	void removeMarked();
 	void removeFromStack(BaseMacWindow *target);
 	void removeFromWindowList(BaseMacWindow *target);
 
-private:
+public:
 	ManagedSurface *_screen;
+	ManagedSurface *_screenCopy;
 
+private:
 	Common::List<BaseMacWindow *> _windowStack;
 	Common::Array<BaseMacWindow *> _windows;
 
@@ -192,9 +253,12 @@ private:
 
 	MacPatterns _patterns;
 
-	Menu *_menu;
+	MacMenu *_menu;
+	uint32 _menuDelay;
 
-	bool _builtInFonts;
+	void *_engine;
+	void (*_pauseEngineCallback)(void *engine, bool pause);
+
 	bool _cursorIsArrow;
 };
 

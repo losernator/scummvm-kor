@@ -27,6 +27,7 @@
 #include "backends/platform/ios7/ios7_common.h"
 #include "backends/base-backend.h"
 #include "common/events.h"
+#include "common/str.h"
 #include "audio/mixer_intern.h"
 #include "backends/fs/posix/posix-fs-factory.h"
 #include "graphics/colormasks.h"
@@ -109,7 +110,7 @@ protected:
 	bool _fullScreenOverlayIsDirty;
 	int _screenChangeCount;
 
-	char *_lastErrorMessage;
+	Common::String _lastErrorMessage;
 
 #ifdef IPHONE_SANDBOXED
 	Common::String _chrootBasePath;
@@ -123,6 +124,9 @@ public:
 	static OSystem_iOS7 *sharedInstance();
 
 	virtual void initBackend();
+
+	virtual void engineInit();
+	virtual void engineDone();
 
 	virtual bool hasFeature(Feature f);
 	virtual void setFeatureState(Feature f, bool enable);
@@ -150,14 +154,14 @@ public:
 protected:
 	// PaletteManager API
 	virtual void setPalette(const byte *colors, uint start, uint num);
-	virtual void grabPalette(byte *colors, uint start, uint num);
+	virtual void grabPalette(byte *colors, uint start, uint num) const;
 
 public:
 	virtual void copyRectToScreen(const void *buf, int pitch, int x, int y, int w, int h);
 	virtual void updateScreen();
 	virtual Graphics::Surface *lockScreen();
 	virtual void unlockScreen();
-	virtual void setShakePos(int shakeOffset);
+	virtual void setShakePos(int shakeXOffset, int shakeYOffset);
 
 	virtual void showOverlay();
 	virtual void hideOverlay();
@@ -202,9 +206,21 @@ public:
 	virtual void logMessage(LogMessageType::Type type, const char *message);
 	virtual void fatalError() override;
 
+	virtual bool hasTextInClipboard();
+	virtual Common::String getTextFromClipboard();
+	virtual bool setTextInClipboard(const Common::String &text);
+
+	virtual bool openUrl(const Common::String &url);
+
+	virtual Common::String getSystemLanguage() const;
+
+	virtual bool isConnectionLimited();
+
 protected:
 	void initVideoContext();
 	void updateOutputSurface();
+	void setShowKeyboard(bool);
+	bool isKeyboardShown() const;
 
 	void internUpdateScreen();
 	void dirtyFullScreen();

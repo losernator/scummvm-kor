@@ -25,40 +25,6 @@
 
 #include "backends/fs/abstract-fs.h"
 
-#ifdef MACOSX
-#include <sys/types.h>
-#endif
-#include <unistd.h>
-
-#ifdef PLAYSTATION3
-#define FORBIDDEN_SYMBOL_ALLOW_ALL
-#define	F_OK		0	/* test for existence of file */
-#define	W_OK		0x02	/* test for write permission */
-#define	R_OK		0x04	/* test for read permission */
-
-
-#ifndef S_ISDIR
-#define S_ISDIR(x) (x & 0040000)
-#endif
-
-static inline int access(const char *pn, int mode)
-{
-   warning("access: pn %s\n", pn);
-   int fd = open(pn, O_RDONLY);
-   if (fd < 0)
-      return -1;
-
-   // XXX lie about it, for now..
-   close(fd);
-   return 0;
-}
-
-static inline char *getenv(const char *name)
-{
-   return 0;
-}
-#endif
-
 /**
  * Implementation of the ScummVM file system API based on POSIX.
  *
@@ -88,13 +54,13 @@ public:
 	 */
 	POSIXFilesystemNode(const Common::String &path);
 
-	virtual bool exists() const { return access(_path.c_str(), F_OK) == 0; }
+	virtual bool exists() const;
 	virtual Common::String getDisplayName() const { return _displayName; }
 	virtual Common::String getName() const { return _displayName; }
 	virtual Common::String getPath() const { return _path; }
 	virtual bool isDirectory() const { return _isDirectory; }
-	virtual bool isReadable() const { return access(_path.c_str(), R_OK) == 0; }
-	virtual bool isWritable() const { return access(_path.c_str(), W_OK) == 0; }
+	virtual bool isReadable() const;
+	virtual bool isWritable() const;
 
 	virtual AbstractFSNode *getChild(const Common::String &n) const;
 	virtual bool getChildren(AbstractFSList &list, ListMode mode, bool hidden) const;
@@ -102,9 +68,9 @@ public:
 
 	virtual Common::SeekableReadStream *createReadStream();
 	virtual Common::WriteStream *createWriteStream();
-	virtual bool create(bool isDirectory);
+	virtual bool createDirectory();
 
-private:
+protected:
 	/**
 	 * Tests and sets the _isValid and _isDirectory flags, using the stat() function.
 	 */

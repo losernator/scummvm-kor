@@ -98,10 +98,11 @@ public:
 	 * Determines the segment occupied by a certain script. Optionally
 	 * load it, or load & lock it.
 	 * @param[in] script_nr	Number of the script to look up
-	 * @param[in] load		flag determining whether to load/lock the script
-	 * @return				The script's segment ID, or 0 on failure
+	 * @param[in] load		           Flag determining whether to load/lock the script
+	 * @param[in] applyScriptPatches   Apply patches for the script, if available
+	 * @return				           The script's segment ID, or 0 on failure
 	 */
-	SegmentId getScriptSegment(int script_nr, ScriptLoadType load);
+	SegmentId getScriptSegment(int script_nr, ScriptLoadType load, bool applyScriptPatches = true);
 
 	/**
 	 * Makes sure that a script and its superclasses get loaded to the heap.
@@ -109,10 +110,11 @@ public:
 	 * increased. All scripts containing superclasses of this script are loaded
 	 * recursively as well, unless 'recursive' is set to zero. The
 	 * complementary function is "uninstantiateScript()" below.
-	 * @param[in] script_nr		The script number to load
-	 * @return					The script's segment ID or 0 if out of heap
+	 * @param[in] script_nr		       The script number to load
+	 * @param[in] applyScriptPatches   Apply patches for the script, if available
+	 * @return					       The script's segment ID or 0 if out of heap
 	 */
-	int instantiateScript(int script_nr);
+	int instantiateScript(int script_nr, bool applyScriptPatches = true);
 
 	/**
 	 * Decreases the numer of lockers of a script and unloads it if that number
@@ -128,7 +130,7 @@ private:
 
 public:
 	// TODO: document this
-	reg_t getClassAddress(int classnr, ScriptLoadType lock, uint16 callerSegment);
+	reg_t getClassAddress(int classnr, ScriptLoadType lock, uint16 callerSegment, bool applyScriptPatches = true);
 
 	/**
 	 * Return a pointer to the specified script.
@@ -304,11 +306,10 @@ public:
 	 * Return the string referenced by pointer.
 	 * pointer can point to either a raw or non-raw segment.
 	 * @param pointer The pointer to dereference
-	 * @parm entries The number of values expected (for checking)
 	 * @return The string referenced, or an empty string if not enough
 	 * entries were available.
 	 */
-	Common::String getString(reg_t pointer, int entries = 0);
+	Common::String getString(reg_t pointer);
 
 
 	/**
@@ -412,6 +413,11 @@ public:
 	const char *getObjectName(reg_t pos);
 
 	/**
+	 * Finds the addresses of all objects with the given name.
+	 */
+	Common::Array<reg_t> findObjectsByName(const Common::String &name);
+
+	/**
 	 * Find the address of an object by its name. In case multiple objects
 	 * with the same name occur, the optional index parameter can be used
 	 * to distinguish between them. If index is -1, then if there is a
@@ -433,16 +439,19 @@ public:
 	reg_t getParserPtr() const { return _parserPtr; }
 
 #ifdef ENABLE_SCI32
-	SciArray<reg_t> *allocateArray(reg_t *addr);
-	SciArray<reg_t> *lookupArray(reg_t addr);
+	bool isValidAddr(reg_t reg, SegmentType expected) const {
+		SegmentObj *mobj = getSegmentObj(reg.getSegment());
+		return (mobj &&
+				mobj->getType() == expected &&
+				mobj->isValidOffset(reg.getOffset()));
+	}
+
+	SciArray *allocateArray(SciArrayType type, uint16 size, reg_t *addr);
+	SciArray *lookupArray(reg_t addr);
 	void freeArray(reg_t addr);
+	bool isArray(reg_t addr) const;
 
-	SciString *allocateString(reg_t *addr);
-	SciString *lookupString(reg_t addr);
-	void freeString(reg_t addr);
-	SegmentId getStringSegmentId() { return _stringSegId; }
-
-	SciBitmap *allocateBitmap(reg_t *addr, const int16 width, const int16 height, const uint8 skipColor = kDefaultSkipColor, const int16 displaceX = 0, const int16 displaceY = 0, const int16 scaledWidth = kLowResX, const int16 scaledHeight = kLowResY, const uint32 paletteSize = 0, const bool remap = false, const bool gc = true);
+	SciBitmap *allocateBitmap(reg_t *addr, const int16 width, const int16 height, const uint8 skipColor = kDefaultSkipColor, const int16 originX = 0, const int16 originY = 0, const int16 xResolution = kLowResX, const int16 yResolution = kLowResY, const uint32 paletteSize = 0, const bool remap = false, const bool gc = true);
 	SciBitmap *lookupBitmap(reg_t addr);
 	void freeBitmap(reg_t addr);
 #endif
@@ -469,7 +478,6 @@ private:
 
 #ifdef ENABLE_SCI32
 	SegmentId _arraysSegId;
-	SegmentId _stringSegId;
 	SegmentId _bitmapSegId;
 #endif
 

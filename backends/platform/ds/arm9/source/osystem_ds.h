@@ -24,6 +24,10 @@
 #ifndef _OSYSTEM_DS_H_
 #define _OSYSTEM_DS_H_
 
+// Allow use of stuff in <nds.h>
+#define FORBIDDEN_SYMBOL_EXCEPTION_printf
+#define FORBIDDEN_SYMBOL_EXCEPTION_unistd_h
+
 #include "backends/base-backend.h"
 #include "common/events.h"
 #include "nds.h"
@@ -93,14 +97,14 @@ public:
 protected:
 	// PaletteManager API
 	virtual void setPalette(const byte *colors, uint start, uint num);
-	virtual void grabPalette(byte *colors, uint start, uint num);
+	virtual void grabPalette(byte *colors, uint start, uint num) const;
 
 public:
 	void restoreHardwarePalette();
 
 	virtual void copyRectToScreen(const void *buf, int pitch, int x, int y, int w, int h);
 	virtual void updateScreen();
-	virtual void setShakePos(int shakeOffset);
+	virtual void setShakePos(int shakeXOffset, int shakeYOffset);
 
 	virtual void showOverlay();
 	virtual void hideOverlay();

@@ -30,11 +30,12 @@
 #include <sys/timer.h>
 #elif defined(XENON)
 #include <time/time.h>
-#elif defined(GEKKO) || defined(__PSL1GHT__) || defined(__QNX__)
+#elif(defined(GEKKO) && !defined(WIIU)) || defined(__PSL1GHT__) || defined(__QNX__)
 #include <unistd.h>
 #elif defined(WIIU)
-#include <coreinit/thread.h>
-#include "system/wiiu.h"
+#include <wiiu/types.h>
+#include <wiiu/os/time.h>
+#include <features_cpu.h>
 #elif defined(PSP)
 #include <pspthreadman.h>
 #elif defined(VITA)
@@ -101,7 +102,7 @@ static INLINE void retro_sleep(unsigned msec)
    Sleep(msec);
 #elif defined(XENON)
    udelay(1000 * msec);
-#elif defined(GEKKO) || defined(__PSL1GHT__) || defined(__QNX__)
+#elif (defined(GEKKO) && !defined(WIIU)) || defined(__PSL1GHT__) || defined(__QNX__)
    usleep(1000 * msec);
 #elif defined(WIIU)
    OSSleepTicks(ms_to_ticks(msec));

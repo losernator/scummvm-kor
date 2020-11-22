@@ -71,7 +71,7 @@ static void * sfx_thread_func(void *arg) {
 }
 
 void OSystem_Wii::initSfx() {
-	_mixer = new Audio::MixerImpl(this, 48000);
+	_mixer = new Audio::MixerImpl(48000);
 
 	sfx_thread_running = false;
 	sfx_thread_quit = false;
@@ -87,7 +87,7 @@ void OSystem_Wii::initSfx() {
 									SFX_THREAD_STACKSIZE, SFX_THREAD_PRIO);
 
 		if (res) {
-			printf("ERROR creating sfx thread: %d\n", res);
+			printf("ERROR creating sfx thread: %ld\n", res);
 			LWP_CloseQueue(sfx_queue);
 			return;
 		}

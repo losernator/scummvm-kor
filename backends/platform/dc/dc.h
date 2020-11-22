@@ -106,7 +106,7 @@ class OSystem_Dreamcast : private DCHardware, public EventsBaseBackend, public P
 protected:
 	// PaletteManager API
   void setPalette(const byte *colors, uint start, uint num);
-  void grabPalette(byte *colors, uint start, uint num);
+  void grabPalette(byte *colors, uint start, uint num) const;
 
 public:
 
@@ -145,7 +145,7 @@ public:
   void setCursorPalette(const byte *colors, uint start, uint num);
 
   // Shaking is used in SCUMM. Set current shake position.
-  void setShakePos(int shake_pos);
+  void setShakePos(int shake_x_pos, int shake_y_pos);
 
   // Get the number of milliseconds since the program was started.
   uint32 getMillis(bool skipRecord = false);
@@ -201,7 +201,7 @@ public:
 
   int _ms_cur_x, _ms_cur_y, _ms_cur_w, _ms_cur_h, _ms_old_x, _ms_old_y;
   int _ms_hotspot_x, _ms_hotspot_y, _ms_visible, _devpoll, _last_screen_refresh;
-  int _current_shake_pos, _screen_w, _screen_h;
+  int _current_shake_x_pos, _current_shake_y_pos, _screen_w, _screen_h;
   int _overlay_x, _overlay_y;
   unsigned char *_ms_buf;
   uint32 _ms_keycolor;
@@ -250,6 +250,11 @@ public:
  protected:
   Plugin* createPlugin(const Common::FSNode &node) const;
   bool isPluginFilename(const Common::FSNode &node) const;
+  void addCustomDirectories(Common::FSList &dirs) const;
+ public:
+  PluginList getPlugins();
+ private:
+  const char *pluginCustomDirectory;
 #endif
 };
 
@@ -258,3 +263,6 @@ extern int handleInput(struct mapledev *pad,
 		       int &mouse_x, int &mouse_y,
 		       byte &shiftFlags, Interactive *inter = NULL);
 extern bool selectGame(char *&, char *&, Common::Language &, Common::Platform &, class Icon &);
+#ifdef DYNAMIC_MODULES
+extern bool selectPluginDir(Common::String &selection, const Common::FSNode &base);
+#endif

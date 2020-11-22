@@ -38,14 +38,14 @@
 #define R_OK 4
 #endif
 
-#if defined(GEKKO) || defined(__CELLOS_LV2__)
+#if (defined(GEKKO) && !defined(WIIU)) || defined(__CELLOS_LV2__)
 extern int access(const char *path, int amode);
 #endif
 
-OSystem* retroBuildOS();
+OSystem* retroBuildOS(bool aEnableSpeedHack);
 const Graphics::Surface& getScreen();
 
-void retroProcessMouse(retro_input_state_t aCallback);
+void retroProcessMouse(retro_input_state_t aCallback, int device, float gampad_cursor_speed, bool analog_response_is_quadratic, int analog_deadzone, float mouse_speed);
 void retroPostQuit();
 
 void retroSetSystemDir(const char* aPath);

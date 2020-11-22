@@ -1013,17 +1013,12 @@ void CharsetRenderer::translateColor() {
 	}
 }
 
-void CharsetRenderer::saveLoadWithSerializer(Serializer *ser) {
-	static const SaveLoadEntry charsetRendererEntries[] = {
-		MKLINE_OLD(CharsetRenderer, _curId, sleByte, VER(73), VER(73)),
-		MKLINE(CharsetRenderer, _curId, sleInt32, VER(74)),
-		MKLINE(CharsetRenderer, _color, sleByte, VER(73)),
-		MKEND()
-	};
+void CharsetRenderer::saveLoadWithSerializer(Common::Serializer &ser) {
+	ser.syncAsByte(_curId, VER(73), VER(73));
+	ser.syncAsSint32LE(_curId, VER(74));
+	ser.syncAsByte(_color, VER(73));
 
-	ser->saveLoadEntries(this, charsetRendererEntries);
-
-	if (ser->isLoading()) {
+	if (ser.isLoading()) {
 		setCurID(_curId);
 		setColor(_color);
 	}
@@ -1378,6 +1373,12 @@ CharsetRendererTownsV3::CharsetRendererTownsV3(ScummEngine *vm) : CharsetRendere
 }
 
 int CharsetRendererTownsV3::getCharWidth(uint16 chr) {
+#ifdef SCUMMVMKOR
+	if (isScummvmKorTarget()) {
+		return CharsetRendererV3::getCharWidth(chr);
+	}
+#endif
+
 	int spacing = 0;
 
 	if (_vm->_useCJKMode) {
@@ -1394,10 +1395,23 @@ int CharsetRendererTownsV3::getCharWidth(uint16 chr) {
 }
 
 int CharsetRendererTownsV3::getFontHeight() {
+#ifdef SCUMMVMKOR
+	if (isScummvmKorTarget()) {
+		return CharsetRendererV3::getFontHeight();
+	}
+#endif
+
 	return _vm->_useCJKMode ? 8 : _fontHeight;
 }
 
 void CharsetRendererTownsV3::enableShadow(bool enable) {
+#ifdef SCUMMVMKOR
+	if (isScummvmKorTarget()) {
+		CharsetRendererV3::enableShadow(enable);
+		return;
+	}
+#endif
+
 	_shadowColor = 8;
 	_enableShadow = enable;
 
@@ -1411,6 +1425,13 @@ void CharsetRendererTownsV3::enableShadow(bool enable) {
 }
 
 void CharsetRendererTownsV3::drawBits1(Graphics::Surface &dest, int x, int y, const byte *src, int drawTop, int width, int height) {
+#ifdef SCUMMVMKOR
+	if (isScummvmKorTarget()) {
+		CharsetRendererV3::drawBits1(dest, x, y, src, drawTop, width, height);
+		return;
+	}
+#endif
+
 #ifndef DISABLE_TOWNS_DUAL_LAYER_MODE
 #ifdef USE_RGB_COLOR
 	if (_sjisCurChar) {
@@ -1491,6 +1512,12 @@ void CharsetRendererTownsV3::drawBits1(Graphics::Surface &dest, int x, int y, co
 }
 #ifndef DISABLE_TOWNS_DUAL_LAYER_MODE
 int CharsetRendererTownsV3::getDrawWidthIntern(uint16 chr) {
+#ifdef SCUMMVMKOR
+	if (isScummvmKorTarget()) {
+		return CharsetRendererV3::getDrawWidthIntern(chr);
+	}
+#endif
+
 #ifdef USE_RGB_COLOR
 	if (_vm->_useCJKMode && chr > 127) {
 		assert(_vm->_cjkFont);
@@ -1501,6 +1528,12 @@ int CharsetRendererTownsV3::getDrawWidthIntern(uint16 chr) {
 }
 
 int CharsetRendererTownsV3::getDrawHeightIntern(uint16 chr) {
+#ifdef SCUMMVMKOR
+	if (isScummvmKorTarget()) {
+		return CharsetRendererV3::getDrawHeightIntern(chr);
+	}
+#endif
+
 #ifdef USE_RGB_COLOR
 	if (_vm->_useCJKMode && chr > 127) {
 		assert(_vm->_cjkFont);

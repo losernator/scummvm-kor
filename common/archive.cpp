@@ -253,7 +253,7 @@ const ArchiveMemberPtr SearchSet::getMember(const String &name) const {
 
 SeekableReadStream *SearchSet::createReadStreamForMember(const String &name) const {
 	if (name.empty())
-		return 0;
+		return nullptr;
 
 	ArchiveNodeList::const_iterator it = _list.begin();
 	for (; it != _list.end(); ++it) {
@@ -262,12 +262,12 @@ SeekableReadStream *SearchSet::createReadStreamForMember(const String &name) con
 			return stream;
 	}
 
-	return 0;
+	return nullptr;
 }
 
 
 SearchManager::SearchManager() {
-	clear();    // Force a reset
+	clear(); // Force a reset
 }
 
 void SearchManager::clear() {
@@ -279,9 +279,12 @@ void SearchManager::clear() {
 	if (g_system)
 		g_system->addSysArchivesToSearchSet(*this, -1);
 
+#ifndef __ANDROID__
 	// Add the current dir as a very last resort.
 	// See also bug #2137680.
+	// But don't do this for Android platform, since it may lead to crashes
 	addDirectory(".", ".", -2);
+#endif
 }
 
 DECLARE_SINGLETON(SearchManager);

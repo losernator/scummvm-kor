@@ -28,14 +28,23 @@
 #include "common/debug.h"
 #include "common/file.h"
 #include <common/translation.h>
+#include "common/osd_message_queue.h"
 
 namespace Cloud {
 
 Storage::Storage():
 	_runningRequestsCount(0), _savesSyncRequest(nullptr), _syncRestartRequestsed(false),
-	_downloadFolderRequest(nullptr) {}
+	_downloadFolderRequest(nullptr), _isEnabled(false) {}
 
 Storage::~Storage() {}
+
+bool Storage::isEnabled() const {
+	return _isEnabled;
+}
+
+void Storage::enable() {
+	_isEnabled = true;
+}
 
 Networking::ErrorCallback Storage::getErrorPrintingCallback() {
 	return new Common::Callback<Storage, Networking::ErrorResponse>(this, &Storage::printErrorResponse);
@@ -120,6 +129,12 @@ Networking::Request *Storage::downloadById(Common::String remoteId, Common::Stri
 }
 
 Networking::Request *Storage::downloadFolder(Common::String remotePath, Common::String localPath, FileArrayCallback callback, Networking::ErrorCallback errorCallback, bool recursive) {
+	if (!_isEnabled) {
+		warning("Storage::downloadFolder: cannot be run while Storage is disabled");
+		if (errorCallback)
+			(*errorCallback)(Networking::ErrorResponse(nullptr, false, true, "Storage is disabled.", -1));
+		return nullptr;
+	}
 	if (!errorCallback)
 		errorCallback = getErrorPrintingCallback();
 	return addRequest(new FolderDownloadRequest(this, callback, errorCallback, remotePath, localPath, recursive));
@@ -127,6 +142,13 @@ Networking::Request *Storage::downloadFolder(Common::String remotePath, Common::
 
 SavesSyncRequest *Storage::syncSaves(BoolCallback callback, Networking::ErrorCallback errorCallback) {
 	_runningRequestsMutex.lock();
+	if (!_isEnabled) {
+		warning("Storage::syncSaves: cannot be run while Storage is disabled");
+		if (errorCallback)
+			(*errorCallback)(Networking::ErrorResponse(nullptr, false, true, "Storage is disabled.", -1));
+		_runningRequestsMutex.unlock();
+		return nullptr;
+	}
 	if (_savesSyncRequest) {
 		warning("Storage::syncSaves: there is a sync in progress already");
 		_syncRestartRequestsed = true;
@@ -207,7 +229,6 @@ void Storage::savesSyncDefaultCallback(BoolResponse response) {
 
 	if (!response.value)
 		warning("SavesSyncRequest called success callback with `false` argument");
-	g_system->displayMessageOnOSD(_("Saved games sync complete."));
 }
 
 void Storage::savesSyncDefaultErrorCallback(Networking::ErrorResponse error) {
@@ -218,9 +239,9 @@ void Storage::savesSyncDefaultErrorCallback(Networking::ErrorResponse error) {
 	printErrorResponse(error);
 
 	if (error.interrupted)
-		g_system->displayMessageOnOSD(_("Saved games sync was cancelled."));
+		Common::OSDMessageQueue::instance().addMessage(_("Saved games sync was cancelled."));
 	else
-		g_system->displayMessageOnOSD(_("Saved games sync failed.\nCheck your Internet connection."));
+		Common::OSDMessageQueue::instance().addMessage(_("Saved games sync failed.\nCheck your Internet connection."));
 }
 
 ///// DownloadFolderRequest-related /////
@@ -328,7 +349,7 @@ void Storage::directoryDownloadedCallback(FileArrayResponse response) {
 	} else {
 		message = _("Download complete.");
 	}
-	g_system->displayMessageOnOSD(message.c_str());
+	Common::OSDMessageQueue::instance().addMessage(message.c_str());
 }
 
 void Storage::directoryDownloadedErrorCallback(Networking::ErrorResponse error) {
@@ -336,7 +357,7 @@ void Storage::directoryDownloadedErrorCallback(Networking::ErrorResponse error) 
 	_downloadFolderRequest = nullptr;
 	_runningRequestsMutex.unlock();
 
-	g_system->displayMessageOnOSD(_("Download failed."));
+	Common::OSDMessageQueue::instance().addMessage(_("Download failed."));
 }
 
 } // End of namespace Cloud

@@ -41,9 +41,6 @@
 #define JOY_XAXIS 0
 #define JOY_YAXIS 1
 
-/* Quick default button states for modifiers. */
-int BUTTON_STATE_L                  =   false;
-
 #if defined(CAANOO)
 
 /* Caanoo: Main Joystick Button Mappings */
@@ -158,20 +155,33 @@ enum {
 };
 
 GPHEventSource::GPHEventSource()
-	: _buttonStateL(false) {
+	: _buttonStateL(false),
+	  _tapmodeLevel(TAPMODE_LEFT) {
+}
+
+void GPHEventSource::ToggleTapMode() {
+	if (_tapmodeLevel == TAPMODE_LEFT) {
+		_tapmodeLevel = TAPMODE_RIGHT;
+	} else if (_tapmodeLevel == TAPMODE_RIGHT) {
+		_tapmodeLevel = TAPMODE_HOVER;
+	} else if (_tapmodeLevel == TAPMODE_HOVER) {
+		_tapmodeLevel = TAPMODE_LEFT;
+	} else {
+		_tapmodeLevel = TAPMODE_LEFT;
+	}
 }
 
 /* Custom handleMouseButtonDown/handleMouseButtonUp to deal with 'Tap Mode' for the touchscreen */
 
 bool GPHEventSource::handleMouseButtonDown(SDL_Event &ev, Common::Event &event) {
 	if (ev.button.button == SDL_BUTTON_LEFT) {
-		if (BUTTON_STATE_L == true) /* BUTTON_STATE_L = Left Trigger Held, force Right Click */
+		if (_buttonStateL == true) /* _buttonStateL = Left Trigger Held, force Right Click */
 			event.type = Common::EVENT_RBUTTONDOWN;
-		else if (GPH::tapmodeLevel == TAPMODE_LEFT) /* TAPMODE_LEFT = Left Click Tap Mode */
+		else if (_tapmodeLevel == TAPMODE_LEFT) /* TAPMODE_LEFT = Left Click Tap Mode */
 			event.type = Common::EVENT_LBUTTONDOWN;
-		else if (GPH::tapmodeLevel == TAPMODE_RIGHT) /* TAPMODE_RIGHT = Right Click Tap Mode */
+		else if (_tapmodeLevel == TAPMODE_RIGHT) /* TAPMODE_RIGHT = Right Click Tap Mode */
 			event.type = Common::EVENT_RBUTTONDOWN;
-		else if (GPH::tapmodeLevel == TAPMODE_HOVER) /* TAPMODE_HOVER = Hover (No Click) Tap Mode */
+		else if (_tapmodeLevel == TAPMODE_HOVER) /* TAPMODE_HOVER = Hover (No Click) Tap Mode */
 			event.type = Common::EVENT_MOUSEMOVE;
 		else
 			event.type = Common::EVENT_LBUTTONDOWN; /* For normal mice etc. */
@@ -191,19 +201,22 @@ bool GPHEventSource::handleMouseButtonDown(SDL_Event &ev, Common::Event &event) 
 		return false;
 
 	processMouseEvent(event, ev.button.x, ev.button.y);
+	// update KbdMouse
+	_km.x = ev.button.x * MULTIPLIER;
+	_km.y = ev.button.y * MULTIPLIER;
 
 	return true;
 }
 
 bool GPHEventSource::handleMouseButtonUp(SDL_Event &ev, Common::Event &event) {
 	if (ev.button.button == SDL_BUTTON_LEFT) {
-		if (BUTTON_STATE_L == true) /* BUTTON_STATE_L = Left Trigger Held, force Right Click */
+		if (_buttonStateL == true) /* _buttonStateL = Left Trigger Held, force Right Click */
 			event.type = Common::EVENT_RBUTTONUP;
-		else if (GPH::tapmodeLevel == TAPMODE_LEFT) /* TAPMODE_LEFT = Left Click Tap Mode */
+		else if (_tapmodeLevel == TAPMODE_LEFT) /* TAPMODE_LEFT = Left Click Tap Mode */
 			event.type = Common::EVENT_LBUTTONUP;
-		else if (GPH::tapmodeLevel == TAPMODE_RIGHT) /* TAPMODE_RIGHT = Right Click Tap Mode */
+		else if (_tapmodeLevel == TAPMODE_RIGHT) /* TAPMODE_RIGHT = Right Click Tap Mode */
 			event.type = Common::EVENT_RBUTTONUP;
-		else if (GPH::tapmodeLevel == TAPMODE_HOVER) /* TAPMODE_HOVER = Hover (No Click) Tap Mode */
+		else if (_tapmodeLevel == TAPMODE_HOVER) /* TAPMODE_HOVER = Hover (No Click) Tap Mode */
 			event.type = Common::EVENT_MOUSEMOVE;
 		else
 			event.type = Common::EVENT_LBUTTONUP; /* For normal mice etc. */
@@ -217,6 +230,9 @@ bool GPHEventSource::handleMouseButtonUp(SDL_Event &ev, Common::Event &event) {
 		return false;
 
 	processMouseEvent(event, ev.button.x, ev.button.y);
+	// update KbdMouse
+	_km.x = ev.button.x * MULTIPLIER;
+	_km.y = ev.button.y * MULTIPLIER;
 
 	return true;
 }
@@ -230,123 +246,123 @@ bool GPHEventSource::handleJoyButtonDown(SDL_Event &ev, Common::Event &event) {
 	switch (ev.jbutton.button) {
 	case BUTTON_UP:
 		if (_km.y_down_count != 2) {
-			_km.y_vel = -1;
+			_km.y_vel = -1 * MULTIPLIER;
 			_km.y_down_count = 1;
 		} else {
-			_km.y_vel = -4;
+			_km.y_vel = -4 * MULTIPLIER;
 		}
 		event.type = Common::EVENT_MOUSEMOVE;
-		processMouseEvent(event, _km.x, _km.y);
+		processMouseEvent(event, _km.x / MULTIPLIER, _km.y / MULTIPLIER);
 		break;
 	case BUTTON_DOWN:
 		if (_km.y_down_count != 2) {
-			_km.y_vel = 1;
+			_km.y_vel = 1 * MULTIPLIER;
 			_km.y_down_count = 1;
 		} else {
-			_km.y_vel = 4;
+			_km.y_vel = 4 * MULTIPLIER;
 		}
 		event.type = Common::EVENT_MOUSEMOVE;
-		processMouseEvent(event, _km.x, _km.y);
+		processMouseEvent(event, _km.x / MULTIPLIER, _km.y / MULTIPLIER);
 		break;
 	case BUTTON_LEFT:
 		if (_km.x_down_count != 2) {
-			_km.x_vel = -1;
+			_km.x_vel = -1 * MULTIPLIER;
 			_km.x_down_count = 1;
 		} else {
-			_km.x_vel = -4;
+			_km.x_vel = -4 * MULTIPLIER;
 		}
 		event.type = Common::EVENT_MOUSEMOVE;
-		processMouseEvent(event, _km.x, _km.y);
+		processMouseEvent(event, _km.x / MULTIPLIER, _km.y / MULTIPLIER);
 		break;
 	case BUTTON_RIGHT:
 		if (_km.x_down_count != 3) {
-			_km.x_vel = 1;
+			_km.x_vel = 1 * MULTIPLIER;
 			_km.x_down_count = 1;
 		} else {
-			_km.x_vel = 4;
+			_km.x_vel = 4 * MULTIPLIER;
 		}
 		event.type = Common::EVENT_MOUSEMOVE;
-		processMouseEvent(event, _km.x, _km.y);
+		processMouseEvent(event, _km.x / MULTIPLIER, _km.y / MULTIPLIER);
 		break;
 	case BUTTON_UPLEFT:
 		if (_km.x_down_count != 2) {
-			_km.x_vel = -1;
+			_km.x_vel = -1 * MULTIPLIER;
 			_km.x_down_count = 1;
 		} else {
-				_km.x_vel = -4;
+				_km.x_vel = -4 * MULTIPLIER;
 		}
 		if (_km.y_down_count != 2) {
-			_km.y_vel = -1;
+			_km.y_vel = -1 * MULTIPLIER;
 			_km.y_down_count = 1;
 		} else {
-			_km.y_vel = -4;
+			_km.y_vel = -4 * MULTIPLIER;
 		}
 		event.type = Common::EVENT_MOUSEMOVE;
-		processMouseEvent(event, _km.x, _km.y);
+		processMouseEvent(event, _km.x / MULTIPLIER, _km.y / MULTIPLIER);
 		break;
 	case BUTTON_UPRIGHT:
 		if (_km.x_down_count != 2) {
-			_km.x_vel = 1;
+			_km.x_vel = 1 * MULTIPLIER;
 			_km.x_down_count = 1;
 		} else {
-			_km.x_vel = 4;
+			_km.x_vel = 4 * MULTIPLIER;
 		}
 		if (_km.y_down_count != 2) {
-			_km.y_vel = -1;
+			_km.y_vel = -1 * MULTIPLIER;
 			_km.y_down_count = 1;
 		} else {
-			_km.y_vel = -4;
+			_km.y_vel = -4 * MULTIPLIER;
 		}
 		event.type = Common::EVENT_MOUSEMOVE;
-		processMouseEvent(event, _km.x, _km.y);
+		processMouseEvent(event, _km.x / MULTIPLIER, _km.y / MULTIPLIER);
 		break;
 	case BUTTON_DOWNLEFT:
 		if (_km.x_down_count != 2) {
-			_km.x_vel = -1;
+			_km.x_vel = -1 * MULTIPLIER;
 			_km.x_down_count = 1;
 		} else {
-			_km.x_vel = -4;
+			_km.x_vel = -4 * MULTIPLIER;
 		}
 		if (_km.y_down_count != 2) {
-			_km.y_vel = 1;
+			_km.y_vel = 1 * MULTIPLIER;
 			_km.y_down_count = 1;
 		} else {
-			_km.y_vel = 4;
+			_km.y_vel = 4 * MULTIPLIER;
 		}
 		event.type = Common::EVENT_MOUSEMOVE;
-		processMouseEvent(event, _km.x, _km.y);
+		processMouseEvent(event, _km.x / MULTIPLIER, _km.y / MULTIPLIER);
 		break;
 	case BUTTON_DOWNRIGHT:
 		if (_km.x_down_count != 2) {
-			_km.x_vel = 1;
+			_km.x_vel = 1 * MULTIPLIER;
 			_km.x_down_count = 1;
 		} else {
-			_km.x_vel = 4;
+			_km.x_vel = 4 * MULTIPLIER;
 		}
 		if (_km.y_down_count != 2) {
-			_km.y_vel = 1;
+			_km.y_vel = 1 * MULTIPLIER;
 			_km.y_down_count = 1;
 		} else {
-			_km.y_vel = 4;
+			_km.y_vel = 4 * MULTIPLIER;
 		}
 		event.type = Common::EVENT_MOUSEMOVE;
-		processMouseEvent(event, _km.x, _km.y);
+		processMouseEvent(event, _km.x / MULTIPLIER, _km.y / MULTIPLIER);
 		break;
 	case BUTTON_B:
 	case BUTTON_CLICK:
 		event.type = Common::EVENT_LBUTTONDOWN;
-		processMouseEvent(event, _km.x, _km.y);
+		processMouseEvent(event, _km.x / MULTIPLIER, _km.y / MULTIPLIER);
 		break;
 	case BUTTON_X:
 		event.type = Common::EVENT_RBUTTONDOWN;
-		processMouseEvent(event, _km.x, _km.y);
+		processMouseEvent(event, _km.x / MULTIPLIER, _km.y / MULTIPLIER);
 		break;
 	case BUTTON_L:
-		BUTTON_STATE_L = true;
+		_buttonStateL = true;
 		break;
 	case BUTTON_R:
 		event.type = Common::EVENT_KEYDOWN;
-		if (BUTTON_STATE_L == true) {
+		if (_buttonStateL == true) {
 #ifdef ENABLE_VKEYBD
 			event.type = Common::EVENT_VIRTUAL_KEYBOARD;
 #else
@@ -361,7 +377,7 @@ bool GPHEventSource::handleJoyButtonDown(SDL_Event &ev, Common::Event &event) {
 	case BUTTON_SELECT:
 	case BUTTON_HOME:
 		event.type = Common::EVENT_KEYDOWN;
-		if (BUTTON_STATE_L == true) {
+		if (_buttonStateL == true) {
 			event.type = Common::EVENT_QUIT;
 		} else {
 			event.kbd.keycode = Common::KEYCODE_ESCAPE;
@@ -370,7 +386,7 @@ bool GPHEventSource::handleJoyButtonDown(SDL_Event &ev, Common::Event &event) {
 		break;
 	case BUTTON_A:
 		event.type = Common::EVENT_KEYDOWN;
-		if (BUTTON_STATE_L == true) {
+		if (_buttonStateL == true) {
 			event.type = Common::EVENT_PREDICTIVE_DIALOG;
 		} else {
 			event.kbd.keycode = Common::KEYCODE_PERIOD;
@@ -379,13 +395,13 @@ bool GPHEventSource::handleJoyButtonDown(SDL_Event &ev, Common::Event &event) {
 		break;
 	case BUTTON_Y:
 		event.type = Common::EVENT_KEYDOWN;
-		if (BUTTON_STATE_L == true) {
-			GPH::ToggleTapMode();
-			if (GPH::tapmodeLevel == TAPMODE_LEFT) {
+		if (_buttonStateL == true) {
+			ToggleTapMode();
+			if (_tapmodeLevel == TAPMODE_LEFT) {
 				g_system->displayMessageOnOSD(_("Touchscreen 'Tap Mode' - Left Click"));
-			} else if (GPH::tapmodeLevel == TAPMODE_RIGHT) {
+			} else if (_tapmodeLevel == TAPMODE_RIGHT) {
 				g_system->displayMessageOnOSD(_("Touchscreen 'Tap Mode' - Right Click"));
-			} else if (GPH::tapmodeLevel == TAPMODE_HOVER) {
+			} else if (_tapmodeLevel == TAPMODE_HOVER) {
 				g_system->displayMessageOnOSD(_("Touchscreen 'Tap Mode' - Hover (No Click)"));
 			}
 		} else {
@@ -396,7 +412,7 @@ bool GPHEventSource::handleJoyButtonDown(SDL_Event &ev, Common::Event &event) {
 	case BUTTON_MENU:
 	case BUTTON_HELP:
 		event.type = Common::EVENT_KEYDOWN;
-		if (BUTTON_STATE_L == true) {
+		if (_buttonStateL == true) {
 			event.type = Common::EVENT_MAINMENU;
 		} else {
 			event.kbd.keycode = Common::KEYCODE_F5;
@@ -423,12 +439,12 @@ bool GPHEventSource::handleJoyButtonDown(SDL_Event &ev, Common::Event &event) {
 		event.type = Common::EVENT_QUIT;
 		break;
 	case BUTTON_HELP2:
-		GPH::ToggleTapMode();
-		if (GPH::tapmodeLevel == TAPMODE_LEFT) {
+		ToggleTapMode();
+		if (_tapmodeLevel == TAPMODE_LEFT) {
 			g_system->displayMessageOnOSD(_("Touchscreen 'Tap Mode' - Left Click"));
-		} else if (GPH::tapmodeLevel == TAPMODE_RIGHT) {
+		} else if (_tapmodeLevel == TAPMODE_RIGHT) {
 			g_system->displayMessageOnOSD(_("Touchscreen 'Tap Mode' - Right Click"));
-		} else if (GPH::tapmodeLevel == TAPMODE_HOVER) {
+		} else if (_tapmodeLevel == TAPMODE_HOVER) {
 			g_system->displayMessageOnOSD(_("Touchscreen 'Tap Mode' - Hover (No Click)"));
 		}
 		break;
@@ -454,19 +470,19 @@ bool GPHEventSource::handleJoyButtonUp(SDL_Event &ev, Common::Event &event) {
 		_km.x_vel = 0;
 		_km.x_down_count = 0;
 		event.type = Common::EVENT_MOUSEMOVE;
-		processMouseEvent(event, _km.x, _km.y);
+		processMouseEvent(event, _km.x / MULTIPLIER, _km.y / MULTIPLIER);
 		break;
 	case BUTTON_B:
 	case BUTTON_CLICK:
 		event.type = Common::EVENT_LBUTTONUP;
-		processMouseEvent(event, _km.x, _km.y);
+		processMouseEvent(event, _km.x / MULTIPLIER, _km.y / MULTIPLIER);
 		break;
 	case BUTTON_X:
 		event.type = Common::EVENT_RBUTTONUP;
-		processMouseEvent(event, _km.x, _km.y);
+		processMouseEvent(event, _km.x / MULTIPLIER, _km.y / MULTIPLIER);
 		break;
 	case BUTTON_L:
-		BUTTON_STATE_L = false;
+		_buttonStateL = false;
 		break;
 	case BUTTON_SELECT:
 	case BUTTON_HOME:
@@ -487,7 +503,7 @@ bool GPHEventSource::handleJoyButtonUp(SDL_Event &ev, Common::Event &event) {
 	case BUTTON_MENU:
 	case BUTTON_HELP:
 		event.type = Common::EVENT_KEYUP;
-		if (BUTTON_STATE_L == true) {
+		if (_buttonStateL == true) {
 			event.type = Common::EVENT_MAINMENU;
 		} else {
 			event.kbd.keycode = Common::KEYCODE_F5;
@@ -496,7 +512,7 @@ bool GPHEventSource::handleJoyButtonUp(SDL_Event &ev, Common::Event &event) {
 		break;
 	case BUTTON_R:
 		event.type = Common::EVENT_KEYUP;
-		if (BUTTON_STATE_L == true) {
+		if (_buttonStateL == true) {
 #ifdef ENABLE_VKEYBD
 			event.kbd.keycode = Common::KEYCODE_F7;
 			event.kbd.ascii = mapKey(SDLK_F7, ev.key.keysym.mod, 0);

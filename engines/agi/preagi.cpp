@@ -48,9 +48,7 @@ PreAgiEngine::PreAgiEngine(OSystem *syst, const AGIGameDescription *gameDesc) : 
 	DebugMan.addDebugChannel(kDebugLevelText, "Text", "Text output debugging");
 	DebugMan.addDebugChannel(kDebugLevelSavegame, "Savegame", "Saving & restoring game debugging");
 
-	memset(&_game, 0, sizeof(struct AgiGame));
 	memset(&_debug, 0, sizeof(struct AgiDebug));
-	memset(&_mouse, 0, sizeof(struct Mouse));
 
 	_speakerHandle = new Audio::SoundHandle();
 }
@@ -84,10 +82,10 @@ void PreAgiEngine::initialize() {
 
 	// clear all resources and events
 	for (int i = 0; i < MAX_DIRECTORY_ENTRIES; i++) {
-		memset(&_game.pictures[i], 0, sizeof(struct AgiPicture));
-		memset(&_game.sounds[i], 0, sizeof(class AgiSound *)); // _game.sounds contains pointers now
-		memset(&_game.dirPic[i], 0, sizeof(struct AgiDir));
-		memset(&_game.dirSound[i], 0, sizeof(struct AgiDir));
+		_game.pictures[i].reset();
+		_game.sounds[i] = nullptr; // _game.sounds contains pointers now
+		_game.dirPic[i].reset();
+		_game.dirSound[i].reset();
 	}
 }
 
@@ -204,6 +202,7 @@ int PreAgiEngine::getSelection(SelectionTypes type) {
 			case Common::EVENT_LBUTTONUP:
 				if (type == kSelYesNo || type == kSelAnyKey)
 					return 1;
+				break;
 			case Common::EVENT_KEYDOWN:
 				if (event.kbd.keycode == Common::KEYCODE_d && (event.kbd.flags & Common::KBD_CTRL) && console) {
 					console->attach();
@@ -217,12 +216,15 @@ int PreAgiEngine::getSelection(SelectionTypes type) {
 				case Common::KEYCODE_y:
 					if (type == kSelYesNo)
 						return 1;
+					break;
 				case Common::KEYCODE_n:
 					if (type == kSelYesNo)
 						return 0;
+					break;
 				case Common::KEYCODE_ESCAPE:
 					if (type == kSelNumber || type == kSelAnyKey)
 						return 0;
+					break;
 				case Common::KEYCODE_1:
 				case Common::KEYCODE_2:
 				case Common::KEYCODE_3:
@@ -234,12 +236,15 @@ int PreAgiEngine::getSelection(SelectionTypes type) {
 				case Common::KEYCODE_9:
 					if (type == kSelNumber)
 						return event.kbd.keycode - Common::KEYCODE_1 + 1;
+					break;
 				case Common::KEYCODE_SPACE:
 					if (type == kSelSpace)
 						return 1;
+					break;
 				case Common::KEYCODE_BACKSPACE:
 					if (type == kSelBackspace)
 						return 0;
+					break;
 				default:
 					if (event.kbd.flags & Common::KBD_CTRL)
 						break;

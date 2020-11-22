@@ -60,6 +60,7 @@ class BaseKeyboardState;
 class BaseGameSettings;
 class ScEngine;
 class SXMath;
+class SXDirectory;
 class UIWindow;
 class VideoPlayer;
 class VideoTheoraPlayer;
@@ -101,7 +102,7 @@ public:
 	virtual bool displayDebugInfo();
 
 	void setShowFPS(bool enabled) { _debugShowFPS = enabled; }
-
+	bool getBilinearFiltering() { return _bilinearFiltering; }
 	bool getSuspendedRendering() const { return _suspendedRendering; }
 
 	TTextEncoding _textEncoding;
@@ -158,6 +159,7 @@ public:
 	ScEngine *_scEngine;
 #endif
 	BaseScriptable *_mathClass;
+	BaseScriptable *_directoryClass;
 	BaseSurfaceStorage *_surfaceStorage;
 	BaseFontStorage *_fontStorage;
 	BaseGame(const Common::String &targetName);
@@ -279,6 +281,7 @@ protected:
 	VideoTheoraPlayer *_theoraPlayer;
 private:
 	bool _debugShowFPS;
+	bool _bilinearFiltering;
 	void *_debugLogFile;
 	void DEBUG_DebugDisable();
 	void DEBUG_DebugEnable(const char *filename = nullptr);

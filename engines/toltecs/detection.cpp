@@ -126,6 +126,20 @@ static const ToltecsGameDescription gameDescriptions[] = {
 	},
 
 	{
+		// 3 Skulls of the Toltecs Polish version
+		// Reported by cachaito in Trac#11134
+		{
+			"toltecs",
+			0,
+			AD_ENTRY1s("WESTERN", "8ec48dd4e52a822d314418f1d3284e64", 337646148),
+			Common::PL_POL,
+			Common::kPlatformDOS,
+			ADGF_NO_FLAGS,
+			GUIO1(GUIO_NONE)
+		},
+	},
+
+	{
 		// 3 Skulls of the Toltecs French version
 		{
 			"toltecs",
@@ -166,6 +180,20 @@ static const ToltecsGameDescription gameDescriptions[] = {
 	},
 
 	{
+		// 3 Skulls of the Toltecs Czech version
+		// Reported by AfBu in Trac#11263
+		{
+			"toltecs",
+			0,
+				AD_ENTRY1s("WESTERN", "57503131c0217c76b07d0b5c14805631", 337644552),
+				Common::CZ_CZE,
+				Common::kPlatformDOS,
+				ADGF_NO_FLAGS,
+				GUIO1(GUIO_NONE)
+		},
+	},
+
+	{
 		// 3 Skulls of the Toltecs English Demo version
 		{
 			"toltecs",
@@ -198,7 +226,7 @@ static const ToltecsGameDescription gameDescriptions[] = {
 
 static const ExtraGuiOption toltecsExtraGuiOption = {
 	_s("Use original save/load screens"),
-	_s("Use the original save/load screens, instead of the ScummVM ones"),
+	_s("Use the original save/load screens instead of the ScummVM ones"),
 	"originalsaveload",
 	false
 };
@@ -210,11 +238,11 @@ public:
 	}
 
 	virtual const char *getName() const {
-		return "Toltecs Engine";
+		return "3 Skulls of the Toltecs";
 	}
 
 	virtual const char *getOriginalCopyright() const {
-		return "Toltecs Engine Revistronic (C) 1996";
+		return "3 Skulls of the Toltecs (C) Revistronic 1996";
 	}
 
 	virtual bool hasFeature(MetaEngineFeature f) const;
@@ -276,7 +304,7 @@ SaveStateList ToltecsMetaEngine::listSaves(const char *target) const {
 		if (slotNum >= 0 && slotNum <= 999) {
 			Common::InSaveFile *in = saveFileMan->openForLoading(file->c_str());
 			if (in) {
-				if (Toltecs::ToltecsEngine::readSaveHeader(in, false, header) == Toltecs::ToltecsEngine::kRSHENoError) {
+				if (Toltecs::ToltecsEngine::readSaveHeader(in, header) == Toltecs::ToltecsEngine::kRSHENoError) {
 					saveList.push_back(SaveStateDescriptor(slotNum, header.description));
 				}
 				delete in;
@@ -325,7 +353,7 @@ SaveStateDescriptor ToltecsMetaEngine::querySaveMetaInfos(const char *target, in
 		Toltecs::ToltecsEngine::SaveHeader header;
 		Toltecs::ToltecsEngine::kReadSaveHeaderError error;
 
-		error = Toltecs::ToltecsEngine::readSaveHeader(in, true, header);
+		error = Toltecs::ToltecsEngine::readSaveHeader(in, header, false);
 		delete in;
 
 		if (error == Toltecs::ToltecsEngine::kRSHENoError) {

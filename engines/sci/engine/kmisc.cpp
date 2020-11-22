@@ -30,15 +30,19 @@
 #include "sci/engine/kernel.h"
 #include "sci/engine/gc.h"
 #include "sci/graphics/cursor.h"
+#include "sci/graphics/palette.h"
 #ifdef ENABLE_SCI32
 #include "sci/graphics/cursor32.h"
 #endif
 #include "sci/graphics/maciconbar.h"
 #include "sci/console.h"
+#ifdef ENABLE_SCI32
+#include "sci/engine/hoyle5poker.h"
+#endif
 
 namespace Sci {
 
-reg_t kRestartGame(EngineState *s, int argc, reg_t *argv) {
+reg_t kRestartGame16(EngineState *s, int argc, reg_t *argv) {
 	s->shrinkStackToBase();
 
 	s->abortScriptProcessing = kAbortRestartGame; // Force vm to abort ASAP
@@ -415,12 +419,29 @@ reg_t kGetConfig(EngineState *s, int argc, reg_t *argv) {
 		s->_segMan->strcpy(data, "");
 	} else if (setting == "game") {
 		// Hoyle 5 startup, specifies the number of the game to start.
-		s->_segMan->strcpy(data, "");
+		if (g_sci->getGameId() == GID_HOYLE5 &&
+			!g_sci->getResMan()->testResource(ResourceId(kResourceTypeScript, 100)) &&
+			g_sci->getResMan()->testResource(ResourceId(kResourceTypeScript, 700))) {
+			// Special case for Hoyle 5 Bridge: only one game is included (Bridge),
+			// so mimic the setting in 700.cfg and set the starting room number to 700.
+			s->_segMan->strcpy(data, "700");
+		} else {
+			s->_segMan->strcpy(data, "");
+		}
 	} else if (setting == "laptop") {
 		// Hoyle 5 startup.
 		s->_segMan->strcpy(data, "");
 	} else if (setting == "jumpto") {
 		// Hoyle 5 startup.
+		s->_segMan->strcpy(data, "");
+	} else if (setting == "klonchtsee") {
+		// Hoyle 5 - starting Solitaire.
+		s->_segMan->strcpy(data, "");
+	} else if (setting == "klonchtarr") {
+		// Hoyle 5 - starting Solitaire.
+		s->_segMan->strcpy(data, "");
+	} else if (setting == "deflang") {
+		// MGDX 4-language startup.
 		s->_segMan->strcpy(data, "");
 	} else {
 		error("GetConfig: Unknown configuration setting %s", setting.c_str());
@@ -432,6 +453,10 @@ reg_t kGetConfig(EngineState *s, int argc, reg_t *argv) {
 // Likely modelled after the Windows 3.1 function GetPrivateProfileInt:
 // http://msdn.microsoft.com/en-us/library/windows/desktop/ms724345%28v=vs.85%29.aspx
 reg_t kGetSierraProfileInt(EngineState *s, int argc, reg_t *argv) {
+	if (g_sci->getPlatform() != Common::kPlatformWindows) {
+		return s->r_acc;
+	}
+
 	Common::String category = s->_segMan->getString(argv[0]);	// always "config"
 	category.toLowercase();
 	Common::String setting = s->_segMan->getString(argv[1]);
@@ -459,6 +484,14 @@ reg_t kGetWindowsOption(EngineState *s, int argc, reg_t *argv) {
 	}
 }
 
+extern Common::String format(const Common::String &source, int argc, const reg_t *argv);
+
+reg_t kPrintDebug(EngineState *s, int argc, reg_t *argv) {
+	const Common::String debugString = s->_segMan->getString(argv[0]);
+	debugC(kDebugLevelGame, "%s", format(debugString, argc - 1, argv + 1).c_str());
+	return s->r_acc;
+}
+
 #endif
 
 // kIconBar is really a subop of kMacPlatform for SCI1.1 Mac
@@ -474,8 +507,7 @@ reg_t kIconBar(EngineState *s, int argc, reg_t *argv) {
 
 	switch (argv[0].toUint16()) {
 	case 0: // InitIconBar
-		for (int i = 0; i < argv[1].toUint16(); i++)
-			g_sci->_gfxMacIconBar->addIcon(argv[i + 2]);
+		g_sci->_gfxMacIconBar->initIcons(argv[1].toUint16(), &argv[2]);
 		break;
 	case 1: // DisposeIconBar
 		warning("kIconBar(Dispose)");
@@ -576,10 +608,10 @@ reg_t kPlatform(EngineState *s, int argc, reg_t *argv) {
 
 	switch (operation) {
 	case kPlatformUnknown:
-		// For Mac versions, kPlatform(0) with other args has more functionality
+		// For Mac versions, kPlatform(0) with other args has more functionality. Otherwise, fall through.
 		if (g_sci->getPlatform() == Common::kPlatformMacintosh && argc > 1)
 			return kMacPlatform(s, argc - 1, argv + 1);
-		// Otherwise, fall through
+		// fall through
 	case kPlatformGetPlatform:
 		if (isWindows)
 			return make_reg(0, kSciPlatformWindows);
@@ -600,6 +632,8 @@ reg_t kPlatform(EngineState *s, int argc, reg_t *argv) {
 	return NULL_REG;
 }
 
+extern void showScummVMDialog(const Common::String &message);
+
 #ifdef ENABLE_SCI32
 reg_t kPlatform32(EngineState *s, int argc, reg_t *argv) {
 	enum Operation {
@@ -609,7 +643,16 @@ reg_t kPlatform32(EngineState *s, int argc, reg_t *argv) {
 		kGetCDDrive    = 3
 	};
 
-	const Operation operation = argc > 0 ? (Operation)argv[0].toSint16() : kGetPlatform;
+	Operation operation;
+	if (getSciVersion() < SCI_VERSION_2_1_MIDDLE) {
+		if (argc == 0 || argv[0].toSint16() == 0) {
+			operation = kGetPlatform;
+		} else {
+			return NULL_REG;
+		}
+	} else {
+		operation = argc > 0 ? (Operation)argv[0].toSint16() : kGetPlatform;
+	}
 
 	switch (operation) {
 	case kGetPlatform:
@@ -620,22 +663,105 @@ reg_t kPlatform32(EngineState *s, int argc, reg_t *argv) {
 			return make_reg(0, kSciPlatformWindows);
 		case Common::kPlatformMacintosh:
 			// For Mac versions, kPlatform(0) with other args has more functionality
-			if (argc > 1)
+			if (argc > 1) {
 				return kMacPlatform(s, argc - 1, argv + 1);
-			else
-				return make_reg(0, kSciPlatformMacintosh);
+			} else {
+				// SCI32 Mac claims to be DOS. GK1 depends on this in order to play its
+				//  view-based slideshow movies. It appears that Sierra opted to change
+				//  this return value instead of updating the game scripts for Mac.
+				return make_reg(0, kSciPlatformDOS);
+			}
 		default:
 			error("Unknown platform %d", g_sci->getPlatform());
 		}
 	case kGetColorDepth:
-		return make_reg(0, /* 256 color */ 2);
+		if (g_sci->getGameId() == GID_PHANTASMAGORIA2) {
+			return make_reg(0, /* 16-bit color */ 3);
+		} else {
+			return make_reg(0, /* 256 color */ 2);
+		}
 	case kGetCDSpeed:
+		// The value `4` comes from Rama DOS resource.cfg installed in DOSBox,
+		// and seems to correspond to the highest expected CD speed value
+		return make_reg(0, 4);
 	case kGetCDDrive:
 	default:
-		return make_reg(0, 0);
+		return NULL_REG;
 	}
 }
+
+reg_t kWebConnect(EngineState *s, int argc, reg_t *argv) {
+	const Common::String baseUrl = "https://web.archive.org/web/1996/";
+	const Common::String gameUrl = argc > 0 ? s->_segMan->getString(argv[0]) : "http://www.sierra.com";
+	return make_reg(0, g_system->openUrl(baseUrl + gameUrl));
+}
+
+reg_t kWinExec(EngineState *s, int argc, reg_t *argv) {
+	return NULL_REG;
+}
+
+reg_t kWinDLL(EngineState *s, int argc, reg_t *argv) {
+	uint16 operation = argv[0].toUint16();
+	Common::String dllName = s->_segMan->getString(argv[1]);
+
+	switch (operation) {
+	case 0:	// load DLL
+		// This is originally a call to LoadLibrary() and to the Watcom function GetIndirectFunctionHandle
+		return make_reg(0, 1000);	// fake ID for loaded DLL, normally returned from Windows LoadLibrary()
+	case 1: // free DLL
+		// In the original, FreeLibrary() was called here for the loaded DLL
+		return TRUE_REG;
+	case 2:	// call DLL function
+		if (dllName == "PENGIN16.DLL") {
+			// Poker engine logic for Hoyle 5
+			// This is originally a call to the Watcom function InvokeIndirectFunction()
+			SciArray *data = s->_segMan->lookupArray(argv[2]);
+			return hoyle5PokerEngine(data);
+		} else {
+			error("kWinDLL: Unknown DLL to invoke: %s", dllName.c_str());
+			return NULL_REG;
+		}
+	default:
+		return NULL_REG;
+	}
+}
+
 #endif
+
+reg_t kKawaHacks(EngineState *s, int argc, reg_t *argv) {
+	switch (argv[0].toUint16()) {
+	case 0: { // DoAlert
+		showScummVMDialog(s->_segMan->getString(argv[1]));
+		return NULL_REG;
+	}
+	case 1: { // ZaWarudo
+		// Invert the color palette for the specified range.
+		uint16 from = argv[1].toUint16();
+		uint16 to = argv[2].toUint16();
+		Palette pal = g_sci->_gfxPalette16->_sysPalette;
+		for (uint16 i = from; i <= to; i++)
+		{
+			pal.colors[i].r = 255 - pal.colors[i].r;
+			pal.colors[i].g = 255 - pal.colors[i].g;
+			pal.colors[i].b = 255 - pal.colors[i].b;
+		}
+		g_sci->_gfxPalette16->set(&pal, true);
+ 		return NULL_REG;
+	}
+ 	case 2: // SetTitleColors
+		// Unused, would change the colors for plain windows' title bars.
+		return NULL_REG;
+	case 3: // IsDebug
+ 		// Return 1 if running with an internal debugger, 2 if we have AddMenu support, 3 if both.
+		return make_reg(0, 3);
+	}
+	return NULL_REG;
+}
+reg_t kKawaDbugStr(EngineState *s, int argc, reg_t *argv)
+{
+	debug("%s", Common::String::format(s->_segMan->getString(argv[0]).c_str(), argc - 1, argv + 1).c_str());
+	return NULL_REG;
+}
 
 reg_t kEmpty(EngineState *s, int argc, reg_t *argv) {
 	// Placeholder for empty kernel functions which are still called from the

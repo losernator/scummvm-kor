@@ -54,8 +54,8 @@ void DropboxInfoRequest::start() {
 	_ignoreCallback = false;
 
 	Networking::JsonCallback innerCallback = new Common::Callback<DropboxInfoRequest, Networking::JsonResponse>(this, &DropboxInfoRequest::userResponseCallback);
-	Networking::ErrorCallback errorCallback = new Common::Callback<DropboxInfoRequest, Networking::ErrorResponse>(this, &DropboxInfoRequest::errorCallback);
-	Networking::CurlJsonRequest *request = new Networking::CurlJsonRequest(innerCallback, errorCallback, DROPBOX_API_GET_CURRENT_ACCOUNT);
+	Networking::ErrorCallback errorResponseCallback = new Common::Callback<DropboxInfoRequest, Networking::ErrorResponse>(this, &DropboxInfoRequest::errorCallback);
+	Networking::CurlJsonRequest *request = new Networking::CurlJsonRequest(innerCallback, errorResponseCallback, DROPBOX_API_GET_CURRENT_ACCOUNT);
 	request->addHeader("Authorization: Bearer " + _token);
 	request->addHeader("Content-Type: application/json");
 	request->addPostField("null"); //use POST
@@ -71,7 +71,7 @@ void DropboxInfoRequest::userResponseCallback(Networking::JsonResponse response)
 		return;
 	}
 
-	Networking::ErrorResponse error(this);
+	Networking::ErrorResponse error(this, "DropboxInfoRequest::userResponseCallback: unknown error");
 	Networking::CurlJsonRequest *rq = (Networking::CurlJsonRequest *)response.request;
 	if (rq && rq->getNetworkReadStream())
 		error.httpResponseCode = rq->getNetworkReadStream()->httpResponseCode();
@@ -108,8 +108,8 @@ void DropboxInfoRequest::userResponseCallback(Networking::JsonResponse response)
 	delete json;
 
 	Networking::JsonCallback innerCallback = new Common::Callback<DropboxInfoRequest, Networking::JsonResponse>(this, &DropboxInfoRequest::quotaResponseCallback);
-	Networking::ErrorCallback errorCallback = new Common::Callback<DropboxInfoRequest, Networking::ErrorResponse>(this, &DropboxInfoRequest::errorCallback);
-	Networking::CurlJsonRequest *request = new Networking::CurlJsonRequest(innerCallback, errorCallback, DROPBOX_API_GET_SPACE_USAGE);
+	Networking::ErrorCallback errorResponseCallback = new Common::Callback<DropboxInfoRequest, Networking::ErrorResponse>(this, &DropboxInfoRequest::errorCallback);
+	Networking::CurlJsonRequest *request = new Networking::CurlJsonRequest(innerCallback, errorResponseCallback, DROPBOX_API_GET_SPACE_USAGE);
 	request->addHeader("Authorization: Bearer " + _token);
 	request->addHeader("Content-Type: application/json");
 	request->addPostField("null"); //use POST
@@ -125,7 +125,7 @@ void DropboxInfoRequest::quotaResponseCallback(Networking::JsonResponse response
 		return;
 	}
 
-	Networking::ErrorResponse error(this);
+	Networking::ErrorResponse error(this, "DropboxInfoRequest::quotaResponseCallback: unknown error");
 	Networking::CurlJsonRequest *rq = (Networking::CurlJsonRequest *)response.request;
 	if (rq && rq->getNetworkReadStream())
 		error.httpResponseCode = rq->getNetworkReadStream()->httpResponseCode();

@@ -40,10 +40,10 @@
 #include "sword25/kernel/outputpersistenceblock.h"
 #include "sword25/kernel/inputpersistenceblock.h"
 
-#include "sword25/util/lua/lua.h"
-#include "sword25/util/lua/lualib.h"
-#include "sword25/util/lua/lauxlib.h"
-#include "sword25/util/lua_persistence.h"
+#include "common/lua/lua.h"
+#include "common/lua/lualib.h"
+#include "common/lua/lauxlib.h"
+#include "common/lua/lua_persistence.h"
 
 namespace Sword25 {
 
@@ -395,7 +395,7 @@ bool LuaScriptEngine::persist(OutputPersistenceBlock &writer) {
 	lua_getglobal(_state, "_G");
 
 	// Lua persists and stores the data in a WriteStream
-	Common::MemoryWriteStreamDynamic writeStream;
+	Common::MemoryWriteStreamDynamic writeStream(DisposeAfterUse::YES);
 	Lua::persistLua(_state, &writeStream);
 
 	// Persistenzdaten in den Writer schreiben.

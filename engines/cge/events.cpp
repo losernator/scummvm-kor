@@ -111,7 +111,7 @@ bool Keyboard::getKey(Common::Event &event) {
 			_vm->_commandHandler->addCommand(kCmdLevel, -1, keycode - Common::KEYCODE_0, NULL);
 			return false;
 		}
-		// Fallthrough intended
+		// fall through
 	case Common::KEYCODE_5:
 	case Common::KEYCODE_6:
 	case Common::KEYCODE_7:
@@ -238,8 +238,15 @@ void Mouse::newMouse(Common::Event &event) {
 EventManager::EventManager(CGEEngine *vm) : _vm(vm){
 	_eventQueueHead = 0;
 	_eventQueueTail = 0;
-	memset(&_eventQueue, 0, kEventMax * sizeof(CGEEvent));
-	memset(&_event, 0, sizeof(Common::Event));
+	for (uint16 k = 0; k < kEventMax; k++) {
+		_eventQueue[k]._mask = 0;
+		_eventQueue[k]._x = 0;
+		_eventQueue[k]._y = 0;
+		_eventQueue[k]._spritePtr = nullptr;
+	}
+	_event.joystick.axis = 0;
+	_event.joystick.position = 0;
+	_event.joystick.button = 0;
 }
 
 void EventManager::poll() {

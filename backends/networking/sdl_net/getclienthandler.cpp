@@ -107,7 +107,7 @@ const char *GetClientHandler::responseMessage(long responseCode) {
 
 void GetClientHandler::prepareHeaders() {
 	if (!_specialHeaders.contains("Content-Type"))
-		setHeader("Content-Type", "text/html");
+		setHeader("Content-Type", "text/html; charset=UTF-8");
 
 	if (!_specialHeaders.contains("Content-Length") && _stream)
 		setHeader("Content-Length", Common::String::format("%u", _stream->size()));
@@ -145,7 +145,7 @@ void GetClientHandler::handle(Client *client) {
 	}
 
 	if (readBytes != 0)
-		if (client->send(_buffer, readBytes) != readBytes) {
+		if (client->send(_buffer, readBytes) != (int)readBytes) {
 			warning("GetClientHandler: unable to send all bytes to the client");
 			client->close();
 			return;

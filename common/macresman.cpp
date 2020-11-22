@@ -67,9 +67,9 @@ void MacResManager::close() {
 		delete[] _resLists[i];
 	}
 
-	delete[] _resLists; _resLists = 0;
-	delete[] _resTypes; _resTypes = 0;
-	delete _stream; _stream = 0;
+	delete[] _resLists; _resLists = nullptr;
+	delete[] _resTypes; _resTypes = nullptr;
+	delete _stream; _stream = nullptr;
 	_resMap.numTypes = 0;
 }
 
@@ -105,6 +105,11 @@ String MacResManager::computeResForkMD5AsString(uint32 length) const {
 
 bool MacResManager::open(const String &fileName) {
 	close();
+
+#ifdef WIIU
+//FIXME crash here on wiiU 
+	return false;
+#endif
 
 #ifdef MACOSX
 	// Check the actual fork on a Mac computer
@@ -463,7 +468,7 @@ bool MacResManager::load(SeekableReadStream &stream) {
 
 SeekableReadStream *MacResManager::getDataFork() {
 	if (!_stream)
-		return NULL;
+		return nullptr;
 
 	if (_mode == kResForkMacBinary) {
 		_stream->seek(MBI_DFLEN);
@@ -476,7 +481,7 @@ SeekableReadStream *MacResManager::getDataFork() {
 		return file;
 	delete file;
 
-	return NULL;
+	return nullptr;
 }
 
 MacResIDArray MacResManager::getResIDArray(uint32 typeID) {
@@ -544,7 +549,7 @@ SeekableReadStream *MacResManager::getResource(uint32 typeID, uint16 resID) {
 		}
 
 	if (typeNum == -1)
-		return NULL;
+		return nullptr;
 
 	for (int i = 0; i < _resTypes[typeNum].items; i++)
 		if (_resLists[typeNum][i].id == resID) {
@@ -553,14 +558,14 @@ SeekableReadStream *MacResManager::getResource(uint32 typeID, uint16 resID) {
 		}
 
 	if (resNum == -1)
-		return NULL;
+		return nullptr;
 
 	_stream->seek(_dataOffset + _resLists[typeNum][resNum].dataOffset);
 	uint32 len = _stream->readUint32BE();
 
 	// Ignore resources with 0 length
 	if (!len)
-		return 0;
+		return nullptr;
 
 	return _stream->readStream(len);
 }
@@ -574,14 +579,14 @@ SeekableReadStream *MacResManager::getResource(const String &fileName) {
 
 				// Ignore resources with 0 length
 				if (!len)
-					return 0;
+					return nullptr;
 
 				return _stream->readStream(len);
 			}
 		}
 	}
 
-	return 0;
+	return nullptr;
 }
 
 SeekableReadStream *MacResManager::getResource(uint32 typeID, const String &fileName) {
@@ -596,14 +601,14 @@ SeekableReadStream *MacResManager::getResource(uint32 typeID, const String &file
 
 				// Ignore resources with 0 length
 				if (!len)
-					return 0;
+					return nullptr;
 
 				return _stream->readStream(len);
 			}
 		}
 	}
 
-	return 0;
+	return nullptr;
 }
 
 void MacResManager::readMap() {
@@ -640,7 +645,7 @@ void MacResManager::readMap() {
 			resPtr->nameOffset = _stream->readUint16BE();
 			resPtr->dataOffset = _stream->readUint32BE();
 			_stream->readUint32BE();
-			resPtr->name = 0;
+			resPtr->name = nullptr;
 
 			resPtr->attr = resPtr->dataOffset >> 24;
 			resPtr->dataOffset &= 0xFFFFFF;

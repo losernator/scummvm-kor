@@ -50,6 +50,7 @@ public:
 	 * Constructor
 	 */
 	BaseSurface(int width, int height);
+	BaseSurface(int width_, int height_, const Graphics::PixelFormat &pf);
 
 	/**
 	 * Draws a surface on this surface
@@ -75,13 +76,13 @@ public:
 	/**
 	 * Draws an image frame at a given position within this surface with transparency
 	 */
-	void SHtransBlitFrom(const ImageFrame &src, const Common::Point &pt,
+	virtual void SHtransBlitFrom(const ImageFrame &src, const Common::Point &pt,
 		bool flipped = false, int overrideColor = 0, int scaleVal = SCALE_THRESHOLD);
 
 	/**
 	 * Draws an image frame at a given position within this surface with transparency
 	 */
-	void SHtransBlitFrom(const Graphics::Surface &src, const Common::Point &pt,
+	virtual void SHtransBlitFrom(const Graphics::Surface &src, const Common::Point &pt,
 		bool flipped = false, int overrideColor = 0, int scaleVal = SCALE_THRESHOLD);
 
 	/**
@@ -122,6 +123,7 @@ protected:
 public:
 	Surface() : BaseSurface() {}
 	Surface(int width_, int height_) : BaseSurface(width_, height_) {}
+	Surface(int width_, int height_, const Graphics::PixelFormat &pf) : BaseSurface(width_, height_, pf) {}
 };
 
 } // End of namespace Sherlock

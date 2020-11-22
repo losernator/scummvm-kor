@@ -21,6 +21,7 @@
  */
 #include "common/scummsys.h"
 
+#include "common/config-manager.h"
 #include "common/events.h"
 #include "common/random.h"
 #include "common/keyboard.h"
@@ -100,13 +101,11 @@ Common::Error ComposerEngine::run() {
 	uint height = 480;
 	if (_bookIni.hasKey("Height", "Common"))
 		height = atoi(getStringFromConfig("Common", "Height").c_str());
-	initGraphics(width, height, true);
+	initGraphics(width, height);
 	_screen.create(width, height, Graphics::PixelFormat::createFormatCLUT8());
 
 	Graphics::Cursor *cursor = Graphics::makeDefaultWinCursor();
-	CursorMan.replaceCursor(cursor->getSurface(), cursor->getWidth(), cursor->getHeight(), cursor->getHotspotX(),
-		cursor->getHotspotY(), cursor->getKeyColor());
-	CursorMan.replaceCursorPalette(cursor->getPalette(), cursor->getPaletteStartIndex(), cursor->getPaletteCount());
+	CursorMan.replaceCursor(cursor);
 	delete cursor;
 
 	_console = new Console(this);
@@ -120,6 +119,9 @@ Common::Error ComposerEngine::run() {
 	else
 		warning("FPS in book.ini is zero. Defaulting to 8...");
 	uint32 lastDrawTime = 0;
+	_lastSaveTime = _system->getMillis();
+
+	bool loadFromLauncher = ConfMan.hasKey("save_slot");
 
 	while (!shouldQuit()) {
 		for (uint i = 0; i < _pendingPageChanges.size(); i++) {
@@ -169,7 +171,12 @@ Common::Error ComposerEngine::run() {
 		} else if (_needsUpdate) {
 			redraw();
 		}
-
+		if (loadFromLauncher) {
+			loadGameState(ConfMan.getInt("save_slot"));
+			loadFromLauncher = false;
+		}
+		if (shouldPerformAutoSave(_lastSaveTime))
+			saveGameState(0, "Autosave");
 		while (_eventMan->pollEvent(event)) {
 			switch (event.type) {
 			case Common::EVENT_LBUTTONDOWN:
@@ -346,6 +353,10 @@ Common::String ComposerEngine::mangleFilename(Common::String filename) {
 		filename = filename.c_str() + 1;
 
 	uint slashesToStrip = _directoriesToStrip;
+
+	if (filename.hasPrefix(".."))
+		slashesToStrip = 1;
+
 	while (slashesToStrip--) {
 		for (uint i = 0; i < filename.size(); i++) {
 			if (filename[i] != '\\' && filename[i] != ':')
@@ -378,7 +389,7 @@ void ComposerEngine::loadLibrary(uint id) {
 	}
 
 	Common::String filename;
-
+	Common::String oldGroup = _bookGroup;
 	if (getGameType() == GType_ComposerV1) {
 		if (!id || _bookGroup.empty())
 			filename = getStringFromConfig("Common", "StartPage");
@@ -412,6 +423,7 @@ void ComposerEngine::loadLibrary(uint id) {
 	Library library;
 
 	library._id = id;
+	library._group = oldGroup;
 	library._archive = new ComposerArchive();
 	if (!library._archive->openFile(filename))
 		error("failed to open '%s'", filename.c_str());
@@ -521,7 +533,8 @@ void ComposerEngine::unloadLibrary(uint id) {
 		return;
 	}
 
-	error("tried to unload library %d, which isn't loaded", id);
+	warning("tried to unload library %d, which isn't loaded", id);
+	return;
 }
 
 bool ComposerEngine::hasResource(uint32 tag, uint16 id) {

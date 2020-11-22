@@ -218,7 +218,7 @@ void sceneHandler22_stoolLogic(ExCommand *cmd) {
 			ani = g_fp->_currentScene->getStaticANIObject1ById(ANI_TABURETTE, -1);
 			if (ani && (ani->_flags & 4)) {
 				int x = g_fp->_aniMan->_ox;
-				int y = g_fp->_aniMan->_ox;
+				int y = g_fp->_aniMan->_oy;
 
 				if (sqrt((double)((841 - x) * (841 - x) + (449 - y) * (449 - y)))
 					< sqrt((double)((1075 - x) * (1075 - x) + (449 - y) * (449 - y)))) {
@@ -380,6 +380,8 @@ int sceneHandler22(ExCommand *cmd) {
 
 			if (x > g_fp->_sceneRect.right - 200)
 				g_fp->_currentScene->_x = x + 300 - g_fp->_sceneRect.right;
+
+			g_fp->sceneAutoScrolling();
 
 			g_fp->_behaviorManager->updateBehaviors();
 

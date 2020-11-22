@@ -94,7 +94,7 @@ public:
 protected:
 	// PaletteManager API
 	void setPalette(const byte *colors, uint start, uint num);
-	void grabPalette(byte *colors, uint start, uint num);
+	void grabPalette(byte *colors, uint start, uint num) const;
 public:
 	void setCursorPalette(const byte *colors, uint start, uint num);
 
@@ -103,7 +103,7 @@ public:
 	Graphics::Surface *lockScreen();
 	void unlockScreen();
 	void updateScreen();
-	void setShakePos(int shakeOffset);
+	void setShakePos(int shakeXOffset, int shakeYOffset);
 
 	// Overlay related
 	void showOverlay();

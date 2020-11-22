@@ -55,16 +55,31 @@ bool iOS7_isBigDevice() {
 	return UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad;
 }
 
+static inline void execute_on_main_thread(void (^block)(void)) {
+	if ([NSThread currentThread] == [NSThread mainThread]) {
+		block();
+	}
+	else {
+		dispatch_sync(dispatch_get_main_queue(), block);
+	}
+}
+
 void iOS7_updateScreen() {
 	//printf("Mouse: (%i, %i)\n", mouseX, mouseY);
 	if (!g_needsScreenUpdate) {
 		g_needsScreenUpdate = 1;
-		[[iOS7AppDelegate iPhoneView] performSelectorOnMainThread:@selector(updateSurface) withObject:nil waitUntilDone: NO];
+		execute_on_main_thread(^{
+			[[iOS7AppDelegate iPhoneView] updateSurface];
+		});
 	}
 }
 
 bool iOS7_fetchEvent(InternalEvent *event) {
-	return [[iOS7AppDelegate iPhoneView] fetchEvent:event];
+	__block bool fetched;
+	execute_on_main_thread(^{
+		fetched = [[iOS7AppDelegate iPhoneView] fetchEvent:event];
+	});
+	return fetched;
 }
 
 uint getSizeNextPOT(uint size) {
@@ -251,7 +266,8 @@ uint getSizeNextPOT(uint size) {
 - (void)compileShaders {
 	const char *vertexPrg =
 			"uniform vec2 ScreenSize;"
-			"uniform float Shake;"
+			"uniform float ShakeX;"
+			"uniform float ShakeY;"
 			""
 			"attribute vec2 Position;"
 			"attribute vec2 TexCoord;"
@@ -262,7 +278,7 @@ uint getSizeNextPOT(uint size) {
 			"void main(void) {"
 			"	DestColor = vec4(Position.x, Position.y, 0, 1);"
 			"	o_TexCoord = TexCoord;"
-			"	gl_Position = vec4((Position.x / ScreenSize.x) * 2.0 - 1.0, (1.0 - (Position.y + Shake) / ScreenSize.y) * 2.0 - 1.0, 0, 1);"
+			"	gl_Position = vec4(((Position.x + ShakeX) / ScreenSize.x) * 2.0 - 1.0, (1.0 - (Position.y + ShakeY) / ScreenSize.y) * 2.0 - 1.0, 0, 1);"
 			"}";
 
 	const char *fragmentPrg =
@@ -294,7 +310,8 @@ uint getSizeNextPOT(uint size) {
 
 	_screenSizeSlot = (GLuint) glGetUniformLocation(programHandle, "ScreenSize");
 	_textureSlot = (GLuint) glGetUniformLocation(programHandle, "Texture");
-	_shakeSlot = (GLuint) glGetUniformLocation(programHandle, "Shake");
+	_shakeXSlot = (GLuint) glGetUniformLocation(programHandle, "ShakeX");
+	_shakeYSlot = (GLuint) glGetUniformLocation(programHandle, "ShakeY");
 
 	_positionSlot = (GLuint) glGetAttribLocation(programHandle, "Position");
 	_textureCoordSlot = (GLuint) glGetAttribLocation(programHandle, "TexCoord");
@@ -334,6 +351,8 @@ uint getSizeNextPOT(uint size) {
 }
 
 - (void)setupGestureRecognizers {
+	UIPinchGestureRecognizer *pinchKeyboard = [[UIPinchGestureRecognizer alloc] initWithTarget:self action:@selector(keyboardPinch:)];
+
 	UISwipeGestureRecognizer *swipeRight = [[UISwipeGestureRecognizer alloc] initWithTarget:self action:@selector(twoFingersSwipeRight:)];
 	swipeRight.direction = UISwipeGestureRecognizerDirectionRight;
 	swipeRight.numberOfTouchesRequired = 2;
@@ -358,22 +377,56 @@ uint getSizeNextPOT(uint size) {
 	swipeDown.delaysTouchesBegan = NO;
 	swipeDown.delaysTouchesEnded = NO;
 
+	UISwipeGestureRecognizer *swipeRight3 = [[UISwipeGestureRecognizer alloc] initWithTarget:self action:@selector(threeFingersSwipeRight:)];
+	swipeRight3.direction = UISwipeGestureRecognizerDirectionRight;
+	swipeRight3.numberOfTouchesRequired = 3;
+	swipeRight3.delaysTouchesBegan = NO;
+	swipeRight3.delaysTouchesEnded = NO;
+
+	UISwipeGestureRecognizer *swipeLeft3 = [[UISwipeGestureRecognizer alloc] initWithTarget:self action:@selector(threeFingersSwipeLeft:)];
+	swipeLeft3.direction = UISwipeGestureRecognizerDirectionLeft;
+	swipeLeft3.numberOfTouchesRequired = 3;
+	swipeLeft3.delaysTouchesBegan = NO;
+	swipeLeft3.delaysTouchesEnded = NO;
+
+	UISwipeGestureRecognizer *swipeUp3 = [[UISwipeGestureRecognizer alloc] initWithTarget:self action:@selector(threeFingersSwipeUp:)];
+	swipeUp3.direction = UISwipeGestureRecognizerDirectionUp;
+	swipeUp3.numberOfTouchesRequired = 3;
+	swipeUp3.delaysTouchesBegan = NO;
+	swipeUp3.delaysTouchesEnded = NO;
+
+	UISwipeGestureRecognizer *swipeDown3 = [[UISwipeGestureRecognizer alloc] initWithTarget:self action:@selector(threeFingersSwipeDown:)];
+	swipeDown3.direction = UISwipeGestureRecognizerDirectionDown;
+	swipeDown3.numberOfTouchesRequired = 3;
+	swipeDown3.delaysTouchesBegan = NO;
+	swipeDown3.delaysTouchesEnded = NO;
+
 	UITapGestureRecognizer *doubleTapTwoFingers = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(twoFingersDoubleTap:)];
 	doubleTapTwoFingers.numberOfTapsRequired = 2;
 	doubleTapTwoFingers.numberOfTouchesRequired = 2;
 	doubleTapTwoFingers.delaysTouchesBegan = NO;
 	doubleTapTwoFingers.delaysTouchesEnded = NO;
 
+	[self addGestureRecognizer:pinchKeyboard];
 	[self addGestureRecognizer:swipeRight];
 	[self addGestureRecognizer:swipeLeft];
 	[self addGestureRecognizer:swipeUp];
 	[self addGestureRecognizer:swipeDown];
+	[self addGestureRecognizer:swipeRight3];
+	[self addGestureRecognizer:swipeLeft3];
+	[self addGestureRecognizer:swipeUp3];
+	[self addGestureRecognizer:swipeDown3];
 	[self addGestureRecognizer:doubleTapTwoFingers];
 
+	[pinchKeyboard release];
 	[swipeRight release];
 	[swipeLeft release];
 	[swipeUp release];
 	[swipeDown release];
+	[swipeRight3 release];
+	[swipeLeft3 release];
+	[swipeUp3 release];
+	[swipeDown3 release];
 	[doubleTapTwoFingers release];
 }
 
@@ -398,11 +451,13 @@ uint getSizeNextPOT(uint size) {
 #endif
 
 	_keyboardView = nil;
+	_keyboardVisible = NO;
 	_screenTexture = 0;
 	_overlayTexture = 0;
 	_mouseCursorTexture = 0;
 
-	_scaledShakeOffsetY = 0;
+	_scaledShakeXOffset = 0;
+	_scaledShakeYOffset = 0;
 
 	_firstTouch = NULL;
 	_secondTouch = NULL;
@@ -442,26 +497,7 @@ uint getSizeNextPOT(uint size) {
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, tex); printOpenGLError();
 
-	GLint filter = GL_LINEAR;
-
-	switch (_videoContext.graphicsMode) {
-	case kGraphicsModeNone:
-		filter = GL_NEAREST;
-		break;
-
-	case kGraphicsModeLinear:
-	case kGraphicsMode2xSaI:
-	case kGraphicsModeSuper2xSaI:
-	case kGraphicsModeSuperEagle:
-	case kGraphicsModeAdvMame2x:
-	case kGraphicsModeAdvMame3x:
-	case kGraphicsModeHQ2x:
-	case kGraphicsModeHQ3x:
-	case kGraphicsModeTV2x:
-	case kGraphicsModeDotMatrix:
-		filter = GL_LINEAR;
-		break;
-	}
+	GLint filter = _videoContext.filtering ? GL_LINEAR : GL_NEAREST;
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter); printOpenGLError();
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter); printOpenGLError();
@@ -478,9 +514,6 @@ uint getSizeNextPOT(uint size) {
 	int scalerScale = 1;
 
 	switch (_videoContext.graphicsMode) {
-	case kGraphicsModeLinear:
-		break;
-
 	case kGraphicsModeNone:
 		break;
 #ifdef USE_SCALERS
@@ -727,6 +760,14 @@ uint getSizeNextPOT(uint size) {
 		screenHeight = MAX(_renderBufferWidth, _renderBufferHeight);
 	}
 
+	if (_keyboardView == nil) {
+		_keyboardView = [[SoftKeyboard alloc] initWithFrame:CGRectZero];
+		[_keyboardView setInputDelegate:self];
+		[self addSubview:[_keyboardView inputView]];
+		[self addSubview: _keyboardView];
+		[self showKeyboard];
+	}
+
 	glBindRenderbuffer(GL_RENDERBUFFER, _viewRenderbuffer); printOpenGLError();
 
 	[self clearColorBuffer];
@@ -768,8 +809,6 @@ uint getSizeNextPOT(uint size) {
 			yOffset = (screenHeight - rectHeight) / 2;
 		}
 
-		[_keyboardView hideKeyboard];
-
 		//printf("Rect: %i, %i, %i, %i\n", xOffset, yOffset, rectWidth, rectHeight);
 		_gameScreenRect = CGRectMake(xOffset, yOffset, rectWidth, rectHeight);
 		overlayPortraitRatio = 1.0f;
@@ -777,17 +816,9 @@ uint getSizeNextPOT(uint size) {
 		GLfloat ratio = adjustedHeight / adjustedWidth;
 		int height = (int)(screenWidth * ratio);
 		//printf("Making rect (%u, %u)\n", screenWidth, height);
+        
 		_gameScreenRect = CGRectMake(0, 0, screenWidth, height);
 
-		CGRect keyFrame = CGRectMake(0.0f, 0.0f, 0.0f, 0.0f);
-		if (_keyboardView == nil) {
-			_keyboardView = [[SoftKeyboard alloc] initWithFrame:keyFrame];
-			[_keyboardView setInputDelegate:self];
-			[self addSubview:[_keyboardView inputView]];
-			[self addSubview: _keyboardView];
-		}
-
-		[_keyboardView showKeyboard];
 		overlayPortraitRatio = (_videoContext.overlayHeight * ratio) / _videoContext.overlayWidth;
 	}
 	_overlayRect = CGRectMake(0, 0, screenWidth, screenHeight * overlayPortraitRatio);
@@ -802,14 +833,49 @@ uint getSizeNextPOT(uint size) {
 
 	[self setViewTransformation];
 	[self updateMouseCursorScaling];
+    [self adjustViewFrameForSafeArea];
+}
+
+#ifndef __has_builtin
+#define __has_builtin(x) 0
+#endif
+
+-(void)adjustViewFrameForSafeArea {
+	// The code below does not quite compile with SDKs older than 11.0.
+	// warning: instance method '-safeAreaInsets' not found (return type defaults to 'id')
+	// error: no viable conversion from 'id' to 'UIEdgeInsets'
+	// So for now disable this code when compiled with an older SDK, which means it is only
+	// available when running on iOS 11+ if it has been compiled on iOS 11+
+#ifdef __IPHONE_11_0
+#if __has_builtin(__builtin_available)
+    if ( @available(iOS 11,*) ) {
+#else
+    if ( [[[UIApplication sharedApplication] keyWindow] respondsToSelector:@selector(safeAreaInsets)] ) {
+#endif
+        CGRect screenSize = [[UIScreen mainScreen] bounds];
+        UIEdgeInsets inset = [[[UIApplication sharedApplication] keyWindow] safeAreaInsets];
+        UIInterfaceOrientation orientation = [[UIApplication sharedApplication] statusBarOrientation];
+        CGRect newFrame = screenSize;
+        if ( orientation == UIInterfaceOrientationPortrait ) {
+            newFrame = CGRectMake(screenSize.origin.x, screenSize.origin.y + inset.top, screenSize.size.width, screenSize.size.height - inset.top);
+        } else if ( orientation == UIInterfaceOrientationLandscapeLeft ) {
+            newFrame = CGRectMake(screenSize.origin.x, screenSize.origin.y, screenSize.size.width - inset.right, screenSize.size.height);
+        } else if ( orientation == UIInterfaceOrientationLandscapeRight ) {
+            newFrame = CGRectMake(screenSize.origin.x + inset.left, screenSize.origin.y, screenSize.size.width - inset.left, screenSize.size.height);
+        }
+        self.frame = newFrame;
+    }
+#endif
 }
 
 - (void)setViewTransformation {
 	// Scale the shake offset according to the overlay size. We need this to
 	// adjust the overlay mouse click coordinates when an offset is set.
-	_scaledShakeOffsetY = (int)(_videoContext.shakeOffsetY / (GLfloat)_videoContext.screenHeight * CGRectGetHeight(_overlayRect));
+	_scaledShakeXOffset = (int)(_videoContext.shakeXOffset / (GLfloat)_videoContext.screenWidth * CGRectGetWidth(_overlayRect));
+	_scaledShakeYOffset = (int)(_videoContext.shakeYOffset / (GLfloat)_videoContext.screenHeight * CGRectGetHeight(_overlayRect));
 
-	glUniform1f(_shakeSlot, _scaledShakeOffsetY);
+	glUniform1f(_shakeXSlot, _scaledShakeXOffset);
+	glUniform1f(_shakeYSlot, _scaledShakeYOffset);
 }
 
 - (void)clearColorBuffer {
@@ -848,23 +914,25 @@ uint getSizeNextPOT(uint size) {
 	point.y *= self.contentScaleFactor;
 
 	CGRect *area;
-	int width, height, offsetY;
+	int width, height, offsetX, offsetY;
 	if (_videoContext.overlayVisible) {
 		area = &_overlayRect;
 		width = _videoContext.overlayWidth;
 		height = _videoContext.overlayHeight;
-		offsetY = _scaledShakeOffsetY;
+		offsetX = _scaledShakeXOffset;
+		offsetY = _scaledShakeYOffset;
 	} else {
 		area = &_gameScreenRect;
 		width = _videoContext.screenWidth;
 		height = _videoContext.screenHeight;
-		offsetY = _videoContext.shakeOffsetY;
+		offsetX = _videoContext.shakeXOffset;
+		offsetY = _videoContext.shakeYOffset;
 	}
 
 	point.x = (point.x - CGRectGetMinX(*area)) / CGRectGetWidth(*area);
 	point.y = (point.y - CGRectGetMinY(*area)) / CGRectGetHeight(*area);
 
-	*x = (int)(point.x * width);
+	*x = (int)(point.x * width + offsetX);
 	// offsetY describes the translation of the screen in the upward direction,
 	// thus we need to add it here.
 	*y = (int)(point.y * height + offsetY);
@@ -880,6 +948,27 @@ uint getSizeNextPOT(uint size) {
 
 - (void)deviceOrientationChanged:(UIDeviceOrientation)orientation {
 	[self addEvent:InternalEvent(kInputOrientationChanged, orientation, 0)];
+
+  BOOL isLandscape = (self.bounds.size.width > self.bounds.size.height);
+  if (isLandscape) {
+    [self hideKeyboard];
+  } else {
+    [self showKeyboard];
+  }
+}
+
+- (void)showKeyboard {
+	[_keyboardView showKeyboard];
+	_keyboardVisible = YES;
+}
+
+- (void)hideKeyboard {
+	[_keyboardView hideKeyboard];
+	_keyboardVisible = NO;
+}
+
+- (BOOL)isKeyboardShown {
+	return _keyboardVisible;
 }
 
 - (UITouch *)secondTouchOtherTouchThan:(UITouch *)touch in:(NSSet *)set {
@@ -967,6 +1056,13 @@ uint getSizeNextPOT(uint size) {
 	_secondTouch = nil;
 }
 
+- (void)keyboardPinch:(UIPinchGestureRecognizer *)recognizer {
+	if ([recognizer scale] < 0.8)
+		[self showKeyboard];
+	else if ([recognizer scale] > 1.25)
+		[self hideKeyboard];
+}
+
 - (void)twoFingersSwipeRight:(UISwipeGestureRecognizer *)recognizer {
 	[self addEvent:InternalEvent(kInputSwipe, kUIViewSwipeRight, 2)];
 }
@@ -983,12 +1079,36 @@ uint getSizeNextPOT(uint size) {
 	[self addEvent:InternalEvent(kInputSwipe, kUIViewSwipeDown, 2)];
 }
 
+- (void)threeFingersSwipeRight:(UISwipeGestureRecognizer *)recognizer {
+	[self addEvent:InternalEvent(kInputSwipe, kUIViewSwipeRight, 3)];
+}
+
+- (void)threeFingersSwipeLeft:(UISwipeGestureRecognizer *)recognizer {
+	[self addEvent:InternalEvent(kInputSwipe, kUIViewSwipeLeft, 3)];
+}
+
+- (void)threeFingersSwipeUp:(UISwipeGestureRecognizer *)recognizer {
+	[self addEvent:InternalEvent(kInputSwipe, kUIViewSwipeUp, 3)];
+}
+
+- (void)threeFingersSwipeDown:(UISwipeGestureRecognizer *)recognizer {
+	[self addEvent:InternalEvent(kInputSwipe, kUIViewSwipeDown, 3)];
+}
+
 - (void)twoFingersDoubleTap:(UITapGestureRecognizer *)recognizer {
 	[self addEvent:InternalEvent(kInputTap, kUIViewTapDouble, 2)];
 }
 
 - (void)handleKeyPress:(unichar)c {
-	[self addEvent:InternalEvent(kInputKeyPressed, c, 0)];
+	if (c == '`') {
+		[self addEvent:InternalEvent(kInputKeyPressed, '\E', 0)];
+	} else {
+		[self addEvent:InternalEvent(kInputKeyPressed, c, 0)];
+	}
+}
+
+- (void)handleMainMenuKey {
+	[self addEvent:InternalEvent(kInputMainMenu, 0, 0)];
 }
 
 - (void)applicationSuspend {

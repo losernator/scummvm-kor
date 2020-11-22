@@ -46,6 +46,7 @@
 #include "common/events.h"
 #include "common/file.h"
 #include "common/scummsys.h"
+#include "common/str.h"
 
 #include "backends/platform/ps2/asyncfio.h"
 #include "backends/platform/ps2/cd.h"
@@ -377,7 +378,7 @@ OSystem_PS2::OSystem_PS2(const char *elfPath) {
 void OSystem_PS2::init(void) {
 	sioprintf("Timer...\n");
 	_timerManager = new DefaultTimerManager();
-	_scummMixer = new Audio::MixerImpl(this, 48000);
+	_scummMixer = new Audio::MixerImpl(48000);
 	_scummMixer->setReady(true);
 
 	initTimer();
@@ -678,7 +679,7 @@ void OSystem_PS2::setPalette(const byte *colors, uint start, uint num) {
 	_screen->setPalette(colors, (uint8)start, (uint16)num);
 }
 
-void OSystem_PS2::grabPalette(byte *colors, uint start, uint num) {
+void OSystem_PS2::grabPalette(byte *colors, uint start, uint num) const {
 	_screen->grabPalette(colors, (uint8)start, (uint16)num);
 }
 
@@ -730,8 +731,8 @@ FilesystemFactory *OSystem_PS2::getFilesystemFactory() {
 	return &Ps2FilesystemFactory::instance();
 }
 
-void OSystem_PS2::setShakePos(int shakeOffset) {
-	_screen->setShakePos(shakeOffset);
+void OSystem_PS2::setShakePos(int shakeXOffset, int shakeYOffset) {
+	_screen->setShakePos(shakeXOffset, shakeYOffset);
 }
 
 bool OSystem_PS2::showMouse(bool visible) {
@@ -1096,7 +1097,7 @@ void OSystem_PS2::makeConfigPath() {
 	else
 		ps2_fclose(src);
 
-	_configFile = strdup(path);
+	_configFile = scumm_strdup(path);
 }
 
 Common::String OSystem_PS2::getDefaultConfigFileName() {

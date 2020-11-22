@@ -64,6 +64,7 @@
 #include "scumm/players/player_v3m.h"
 #include "scumm/players/player_v4a.h"
 #include "scumm/players/player_v5m.h"
+#include "scumm/players/player_he.h"
 #include "scumm/resource.h"
 #include "scumm/he/resource_he.h"
 #include "scumm/he/moonbase/moonbase.h"
@@ -75,8 +76,10 @@
 #include "scumm/he/cup_player_he.h"
 #include "scumm/util.h"
 #include "scumm/verbs.h"
-#include "scumm/imuse/pcspk.h"
-#include "scumm/imuse/mac_m68k.h"
+#include "scumm/imuse/drivers/pcspk.h"
+#include "scumm/imuse/drivers/mac_m68k.h"
+#include "scumm/imuse/drivers/amiga.h"
+#include "scumm/imuse/drivers/fmtowns.h"
 
 #include "backends/audiocd/audiocd.h"
 
@@ -110,7 +113,8 @@ static const dbgChannelDesc debugChannels[] = {
 	{"ACTORS", "Actor-related debug", DEBUG_ACTORS},
 	{"SOUND", "Sound related debug", DEBUG_SOUND},
 	{"INSANE", "Track INSANE", DEBUG_INSANE},
-	{"SMUSH", "Track SMUSH", DEBUG_SMUSH}
+	{"SMUSH", "Track SMUSH", DEBUG_SMUSH},
+	{"MOONBASEAI", "Track Moonbase AI", DEBUG_MOONBASE_AI}
 };
 
 ScummEngine::ScummEngine(OSystem *syst, const DetectorResult &dr)
@@ -247,7 +251,7 @@ ScummEngine::ScummEngine(OSystem *syst, const DetectorResult &dr)
 	_screenHeight = 0;
 	_screenWidth = 0;
 	memset(_virtscr, 0, sizeof(_virtscr));
-	memset(&camera, 0, sizeof(CameraData));
+	camera.reset();
 	memset(_colorCycle, 0, sizeof(_colorCycle));
 	memset(_colorUsedByCycle, 0, sizeof(_colorUsedByCycle));
 	_ENCD_offs = 0;
@@ -337,8 +341,18 @@ ScummEngine::ScummEngine(OSystem *syst, const DetectorResult &dr)
 	_townsPaletteFlags = 0;
 	_townsClearLayerFlag = 1;
 	_townsActiveLayerFlags = 3;
-	memset(&_curStringRect, -1, sizeof(Common::Rect));
-	memset(&_cyclRects, 0, 16 * sizeof(Common::Rect));
+	_curStringRect.top = -1;
+	_curStringRect.left = -1;
+	_curStringRect.bottom = -1;
+	_curStringRect.right = -1;
+
+	for (int i = 0; i < ARRAYSIZE(_cyclRects); i++) {
+		_cyclRects[i].top = 0;
+		_cyclRects[i].left = 0;
+		_cyclRects[i].bottom = 0;
+		_cyclRects[i].right = 0;
+	}
+
 	_numCyclRects = 0;
 #endif
 
@@ -719,6 +733,8 @@ ScummEngine_v2::ScummEngine_v2(OSystem *syst, const DetectorResult &dr)
 	: ScummEngine_v3old(syst, dr) {
 
 	_inventoryOffset = 0;
+	_flashlight.xStrips = 6;
+	_flashlight.yStrips = 4;
 
 	VAR_SENTENCE_VERB = 0xFF;
 	VAR_SENTENCE_OBJECT1 = 0xFF;
@@ -967,7 +983,7 @@ ScummEngine_v100he::~ScummEngine_v100he() {
 ScummEngine_vCUPhe::ScummEngine_vCUPhe(OSystem *syst, const DetectorResult &dr) : Engine(syst){
 	_syst = syst;
 	_game = dr.game;
-	_filenamePattern = dr.fp,
+	_filenamePattern = dr.fp;
 
 	_cupPlayer = new CUP_Player(syst, this, _mixer);
 }
@@ -977,7 +993,7 @@ ScummEngine_vCUPhe::~ScummEngine_vCUPhe() {
 }
 
 Common::Error ScummEngine_vCUPhe::run() {
-	initGraphics(CUP_Player::kDefaultVideoWidth, CUP_Player::kDefaultVideoHeight, true);
+	initGraphics(CUP_Player::kDefaultVideoWidth, CUP_Player::kDefaultVideoHeight);
 
 	if (_cupPlayer->open(_filenamePattern.pattern)) {
 		_cupPlayer->play();
@@ -1297,7 +1313,7 @@ Common::Error ScummEngine::init() {
 
 	// Initialize backend
 	if (_renderMode == Common::kRenderHercA || _renderMode == Common::kRenderHercG) {
-		initGraphics(kHercWidth, kHercHeight, true);
+		initGraphics(kHercWidth, kHercHeight);
 	} else {
 		int screenWidth = _screenWidth;
 		int screenHeight = _screenHeight;
@@ -1316,7 +1332,7 @@ Common::Error ScummEngine::init() {
 			_outputPixelFormat = Graphics::PixelFormat(2, 5, 5, 5, 0, 10, 5, 0, 0);
 
 			if (_game.platform != Common::kPlatformFMTowns && _game.platform != Common::kPlatformPCEngine) {
-				initGraphics(screenWidth, screenHeight, screenWidth > 320, &_outputPixelFormat);
+				initGraphics(screenWidth, screenHeight, &_outputPixelFormat);
 				if (_outputPixelFormat != _system->getScreenFormat())
 					return Common::kUnsupportedColorMode;
 			} else {
@@ -1331,14 +1347,14 @@ Common::Error ScummEngine::init() {
 					}
 				}
 
-				initGraphics(screenWidth, screenHeight, screenWidth > 320, tryModes);
+				initGraphics(screenWidth, screenHeight, tryModes);
 				if (_system->getScreenFormat().bytesPerPixel != 2)
 					return Common::kUnsupportedColorMode;
 			}
 #else
 			if (_game.platform == Common::kPlatformFMTowns && _game.version == 3) {
 				warning("Starting game without the required 16bit color support.\nYou may experience color glitches");
-				initGraphics(screenWidth, screenHeight, (screenWidth > 320));
+				initGraphics(screenWidth, screenHeight);
 			} else {
 				return Common::Error(Common::kUnsupportedColorMode, "16bit color support is required for this game");
 			}
@@ -1348,7 +1364,7 @@ Common::Error ScummEngine::init() {
 		if (_game.platform == Common::kPlatformFMTowns && _game.version == 5)
 			return Common::Error(Common::kUnsupportedColorMode, "This game requires dual graphics layer support which is disabled in this build");
 #endif
-			initGraphics(screenWidth, screenHeight, (screenWidth > 320));
+			initGraphics(screenWidth, screenHeight);
 		}
 	}
 
@@ -1828,7 +1844,7 @@ void ScummEngine_v90he::resetScumm() {
 	_hePaletteNum = 0;
 
 	_sprite->resetTables(0);
-	memset(&_wizParams, 0, sizeof(_wizParams));
+	_wizParams.reset();
 
 	if (_game.heversion >= 98)
 		_logicHE = LogicHE::makeLogicHE(this);
@@ -1873,6 +1889,9 @@ void ScummEngine::setupMusic(int midi) {
 	switch (MidiDriver::getMusicType(dev)) {
 	case MT_NULL:
 		_sound->_musicType = MDT_NONE;
+		break;
+	case MT_AMIGA:
+		_sound->_musicType = MDT_AMIGA;
 		break;
 	case MT_PCSPK:
 		_sound->_musicType = MDT_PCSPK;
@@ -2004,6 +2023,10 @@ void ScummEngine::setupMusic(int midi) {
 		// support this with the Player_AD code at the moment. The reason here
 		// is that multi MIDI is supported internally by our iMuse output.
 		_musicEngine = new Player_AD(this);
+#ifdef ENABLE_HE
+	} else if (_game.platform == Common::kPlatformDOS && _sound->_musicType == MDT_ADLIB && _game.heversion >= 60) {
+		_musicEngine = new Player_HE(this);
+#endif
 	} else if (_game.version >= 3 && _game.heversion <= 62) {
 		MidiDriver *nativeMidiDriver = 0;
 		MidiDriver *adlibMidiDriver = 0;
@@ -2018,6 +2041,10 @@ void ScummEngine::setupMusic(int midi) {
 			_native_mt32 = false;
 			// Ignore non-native drivers. This also ignores the multi MIDI setting.
 			useOnlyNative = true;
+		} else if (_sound->_musicType == MDT_AMIGA) {
+			nativeMidiDriver = new IMuseDriver_Amiga(_mixer);
+			_native_mt32 = false;
+			useOnlyNative = true;
 		} else if (_sound->_musicType != MDT_ADLIB && _sound->_musicType != MDT_TOWNS && _sound->_musicType != MDT_PCSPK) {
 			nativeMidiDriver = MidiDriver::createMidi(dev);
 		}
@@ -2026,7 +2053,9 @@ void ScummEngine::setupMusic(int midi) {
 			nativeMidiDriver->property(MidiDriver::PROP_CHANNEL_MASK, 0x03FE);
 
 		if (!useOnlyNative) {
-			if (_sound->_musicType == MDT_ADLIB || _sound->_musicType == MDT_TOWNS || multi_midi) {
+			if (_sound->_musicType == MDT_TOWNS) {
+				adlibMidiDriver = new MidiDriver_TOWNS(_mixer);
+			} else if (_sound->_musicType == MDT_ADLIB || multi_midi) {
 				adlibMidiDriver = MidiDriver::createMidi(MidiDriver::detectDevice(_sound->_musicType == MDT_TOWNS ? MDT_TOWNS : MDT_ADLIB));
 				adlibMidiDriver->property(MidiDriver::PROP_OLD_ADLIB, (_game.features & GF_SMALL_HEADER) ? 1 : 0);
 				// Try to use OPL3 mode for Sam&Max when possible.
@@ -2064,6 +2093,8 @@ void ScummEngine::setupMusic(int midi) {
 			}
 			if (_sound->_musicType == MDT_PCSPK)
 				_imuse->property(IMuse::PROP_PC_SPEAKER, 1);
+			if (_sound->_musicType == MDT_AMIGA)
+				_imuse->property(IMuse::PROP_AMIGA, 1);
 		}
 	}
 }
@@ -2491,14 +2522,17 @@ void ScummEngine::scummLoop_handleSaveLoad() {
 		if (_saveLoadFlag == 1) {
 			success = saveState(_saveLoadSlot, _saveTemporaryState, filename);
 			if (!success)
-				errMsg = _("Failed to save game state to file:\n\n%s");
+				errMsg = _("Failed to save game to file:\n\n%s");
 
 			if (success && _saveTemporaryState && VAR_GAME_LOADED != 0xFF && _game.version <= 7)
 				VAR(VAR_GAME_LOADED) = 201;
+
+			if (!_saveTemporaryState)
+				_lastSaveTime = _system->getMillis();
 		} else {
 			success = loadState(_saveLoadSlot, _saveTemporaryState, filename);
 			if (!success)
-				errMsg = _("Failed to load game state from file:\n\n%s");
+				errMsg = _("Failed to load saved game from file:\n\n%s");
 
 			if (success && _saveTemporaryState && VAR_GAME_LOADED != 0xFF)
 				VAR(VAR_GAME_LOADED) = (_game.version == 8) ? 1 : 203;
@@ -2509,7 +2543,7 @@ void ScummEngine::scummLoop_handleSaveLoad() {
 		} else if (_saveLoadFlag == 1 && _saveLoadSlot != 0 && !_saveTemporaryState) {
 			// Display "Save successful" message, except for auto saves
 			char buf[256];
-			snprintf(buf, sizeof(buf), _("Successfully saved game state in file:\n\n%s"), filename.c_str());
+			snprintf(buf, sizeof(buf), _("Successfully saved game in file:\n\n%s"), filename.c_str());
 
 			GUI::TimedMessageDialog dialog(buf, 1500);
 			runDialog(dialog);
@@ -2518,7 +2552,6 @@ void ScummEngine::scummLoop_handleSaveLoad() {
 			clearClickedStatus();
 
 		_saveLoadFlag = 0;
-		_lastSaveTime = _system->getMillis();
 	}
 }
 

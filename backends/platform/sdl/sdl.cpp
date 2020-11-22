@@ -22,17 +22,13 @@
 
 #define FORBIDDEN_SYMBOL_ALLOW_ALL
 
-#ifdef WIN32
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-#undef ARRAYSIZE // winnt.h defines ARRAYSIZE, but we want our own one...
-#endif
-
 #include "backends/platform/sdl/sdl.h"
 #include "common/config-manager.h"
 #include "gui/EventRecorder.h"
 #include "common/taskbar.h"
 #include "common/textconsole.h"
+#include "common/translation.h"
+#include "common/encoding.h"
 
 #include "backends/saves/default/default-saves.h"
 
@@ -43,6 +39,7 @@
 #include "backends/audiocd/sdl/sdl-audiocd.h"
 #endif
 
+#include "backends/events/default/default-events.h"
 #include "backends/events/sdl/sdl-events.h"
 #include "backends/mutex/sdl/sdl-mutex.h"
 #include "backends/timer/sdl/sdl-timer.h"
@@ -89,6 +86,8 @@ OSystem_SDL::OSystem_SDL()
 	_eventSource(0),
 	_window(0) {
 
+	ConfMan.registerDefault("kbdmouse_speed", 3);
+	ConfMan.registerDefault("joystick_deadzone", 3);
 }
 
 OSystem_SDL::~OSystem_SDL() {
@@ -179,6 +178,10 @@ bool OSystem_SDL::hasFeature(Feature f) {
 #if SDL_VERSION_ATLEAST(2, 0, 0)
 	if (f == kFeatureClipboardSupport) return true;
 #endif
+	if (f == kFeatureJoystickDeadzone || f == kFeatureKbdMouseSpeed) {
+		bool joystickSupportEnabled = ConfMan.getInt("joystick_num") >= 0;
+		return joystickSupportEnabled;
+	}
 	return ModularBackend::hasFeature(f);
 }
 
@@ -194,14 +197,22 @@ void OSystem_SDL::initBackend() {
 	sdlDriverName[0] = '\0';
 	SDL_VideoDriverName(sdlDriverName, maxNameLen);
 #endif
-	// Using printf rather than debug() here as debug()/logging
-	// is not active by this point.
 	debug(1, "Using SDL Video Driver \"%s\"", sdlDriverName);
 
 	// Create the default event source, in case a custom backend
 	// manager didn't provide one yet.
 	if (_eventSource == 0)
 		_eventSource = new SdlEventSource();
+
+	if (_eventManager == nullptr) {
+		DefaultEventManager *eventManager = new DefaultEventManager(_eventSource);
+#if SDL_VERSION_ATLEAST(2, 0, 0)
+		// SDL 2 generates its own keyboard repeat events.
+		eventManager->setGenerateKeyRepeatEvents(false);
+#endif
+		_eventManager = eventManager;
+	}
+
 
 #ifdef USE_OPENGL
 #if SDL_VERSION_ATLEAST(2, 0, 0)
@@ -283,20 +294,28 @@ void OSystem_SDL::initBackend() {
 	dynamic_cast<SdlGraphicsManager *>(_graphicsManager)->activateManager();
 }
 
-#if defined(USE_TASKBAR)
 void OSystem_SDL::engineInit() {
+#if SDL_VERSION_ATLEAST(2, 0, 0)
+	dynamic_cast<SdlGraphicsManager *>(_graphicsManager)->unlockWindowSize();
+#endif
+#ifdef USE_TASKBAR
 	// Add the started engine to the list of recent tasks
 	_taskbarManager->addRecent(ConfMan.getActiveDomainName(), ConfMan.get("description"));
 
 	// Set the overlay icon the current running engine
 	_taskbarManager->setOverlayIcon(ConfMan.getActiveDomainName(), ConfMan.get("description"));
+#endif
 }
 
 void OSystem_SDL::engineDone() {
+#if SDL_VERSION_ATLEAST(2, 0, 0)
+	dynamic_cast<SdlGraphicsManager *>(_graphicsManager)->unlockWindowSize();
+#endif
+#ifdef USE_TASKBAR
 	// Remove overlay icon
 	_taskbarManager->setOverlayIcon("", "");
-}
 #endif
+}
 
 void OSystem_SDL::initSDL() {
 	// Check if SDL has not been initialized
@@ -361,12 +380,12 @@ void OSystem_SDL::setWindowCaption(const char *caption) {
 }
 
 void OSystem_SDL::quit() {
-	delete this;
+	destroy();
 	exit(0);
 }
 
 void OSystem_SDL::fatalError() {
-	delete this;
+	destroy();
 	exit(1);
 }
 
@@ -386,51 +405,26 @@ void OSystem_SDL::logMessage(LogMessageType::Type type, const char *message) {
 	// Then log into file (via the logger)
 	if (_logger)
 		_logger->print(message);
+}
 
-	// Finally, some Windows / WinCE specific logging code.
-#if defined( USE_WINDBG )
-#if defined( _WIN32_WCE )
-	TCHAR buf_unicode[1024];
-	MultiByteToWideChar(CP_ACP, 0, message, strlen(message) + 1, buf_unicode, sizeof(buf_unicode));
-	OutputDebugString(buf_unicode);
+Common::WriteStream *OSystem_SDL::createLogFile() {
+	// Start out by resetting _logFilePath, so that in case
+	// of a failure, we know that no log file is open.
+	_logFilePath.clear();
 
-	if (type == LogMessageType::kError) {
-#ifndef DEBUG
-		drawError(message);
-#else
-		int cmon_break_into_the_debugger_if_you_please = *(int *)(message + 1);	// bus error
-		printf("%d", cmon_break_into_the_debugger_if_you_please);			// don't optimize the int out
-#endif
-	}
+	Common::String logFile = getDefaultLogFileName();
+	if (logFile.empty())
+		return nullptr;
 
-#else
-	OutputDebugString(message);
-#endif
-#endif
+	Common::FSNode file(logFile);
+	Common::WriteStream *stream = file.createWriteStream();
+	if (stream)
+		_logFilePath = logFile;
+	return stream;
 }
 
 Common::String OSystem_SDL::getSystemLanguage() const {
-#if defined(USE_DETECTLANG) && !defined(_WIN32_WCE)
-#ifdef WIN32
-	// We can not use "setlocale" (at least not for MSVC builds), since it
-	// will return locales like: "English_USA.1252", thus we need a special
-	// way to determine the locale string for Win32.
-	char langName[9];
-	char ctryName[9];
-
-	const LCID languageIdentifier = GetThreadLocale();
-
-	if (GetLocaleInfo(languageIdentifier, LOCALE_SISO639LANGNAME, langName, sizeof(langName)) != 0 &&
-		GetLocaleInfo(languageIdentifier, LOCALE_SISO3166CTRYNAME, ctryName, sizeof(ctryName)) != 0) {
-		Common::String localeName = langName;
-		localeName += "_";
-		localeName += ctryName;
-
-		return localeName;
-	} else {
-		return ModularBackend::getSystemLanguage();
-	}
-#else // WIN32
+#if defined(USE_DETECTLANG) && !defined(WIN32)
 	// Activating current locale settings
 	const Common::String locale = setlocale(LC_ALL, "");
 
@@ -458,35 +452,53 @@ Common::String OSystem_SDL::getSystemLanguage() const {
 
 		return Common::String(locale.c_str(), length);
 	}
-#endif // WIN32
 #else // USE_DETECTLANG
 	return ModularBackend::getSystemLanguage();
 #endif // USE_DETECTLANG
 }
 
-bool OSystem_SDL::hasTextInClipboard() {
 #if SDL_VERSION_ATLEAST(2, 0, 0)
+bool OSystem_SDL::hasTextInClipboard() {
 	return SDL_HasClipboardText() == SDL_TRUE;
-#else
-	return false;
-#endif
 }
 
 Common::String OSystem_SDL::getTextFromClipboard() {
 	if (!hasTextInClipboard()) return "";
 
-#if SDL_VERSION_ATLEAST(2, 0, 0)
 	char *text = SDL_GetClipboardText();
+	// The string returned by SDL is in UTF-8. Convert to the
+	// current TranslationManager encoding or ISO-8859-1.
+#ifdef USE_TRANSLATION
+	char *conv_text = SDL_iconv_string(TransMan.getCurrentCharset().c_str(), "UTF-8", text, SDL_strlen(text) + 1);
+#else
+	char *conv_text = SDL_iconv_string("ISO-8859-1", "UTF-8", text, SDL_strlen(text) + 1);
+#endif
+	if (conv_text) {
+		SDL_free(text);
+		text = conv_text;
+	}
 	Common::String strText = text;
 	SDL_free(text);
 
-	// FIXME: The string returned by SDL is in UTF-8, it is not clear
-	// what encoding should be used for the returned string.
 	return strText;
-#else
-	return "";
-#endif
 }
+
+bool OSystem_SDL::setTextInClipboard(const Common::String &text) {
+	// The encoding we need to use is UTF-8. Assume we currently have the
+	// current TranslationManager encoding or ISO-8859-1.
+#ifdef USE_TRANSLATION
+	char *utf8_text = SDL_iconv_string("UTF-8", TransMan.getCurrentCharset().c_str(), text.c_str(), text.size() + 1);
+#else
+	char *utf8_text = SDL_iconv_string("UTF-8", "ISO-8859-1", text.c_str(), text.size() + 1);
+#endif
+	if (utf8_text) {
+		int status = SDL_SetClipboardText(utf8_text);
+		SDL_free(utf8_text);
+		return status == 0;
+	}
+	return SDL_SetClipboardText(text.c_str()) == 0;
+}
+#endif
 
 uint32 OSystem_SDL::getMillis(bool skipRecord) {
 	uint32 millis = SDL_GetTicks();
@@ -555,6 +567,14 @@ Common::SaveFileManager *OSystem_SDL::getSavefileManager() {
 #else
     return _savefileManager;
 #endif
+}
+
+//Not specified in base class
+Common::String OSystem_SDL::getScreenshotsPath() {
+	Common::String path = ConfMan.get("screenshotpath");
+	if (!path.empty() && !path.hasSuffix("/"))
+		path += "/";
+	return path;
 }
 
 #ifdef USE_OPENGL
@@ -738,4 +758,51 @@ int SDL_SetColorKey_replacement(SDL_Surface *surface, Uint32 flag, Uint32 key) {
 	return SDL_SetColorKey(surface, SDL_TRUE, key) ? -1 : 0;
 }
 #endif
+
+char *OSystem_SDL::convertEncoding(const char *to, const char *from, const char *string, size_t length) {
+#if SDL_VERSION_ATLEAST(1, 2, 10)
+	int zeroBytes = 1;
+	if (Common::String(from).hasPrefixIgnoreCase("utf-16"))
+		zeroBytes = 2;
+	else if (Common::String(from).hasPrefixIgnoreCase("utf-32"))
+		zeroBytes = 4;
+
+	char *result;
+	// SDL_iconv_string() takes char * instead of const char * as it's third parameter
+	// with some older versions of SDL.
+#if SDL_VERSION_ATLEAST(2, 0, 0)
+	result = SDL_iconv_string(to, from, string, length + zeroBytes);
+#else
+	char *stringCopy = (char *) calloc(sizeof(char), length + zeroBytes);
+	memcpy(stringCopy, string, length);
+	result = SDL_iconv_string(to, from, stringCopy, length + zeroBytes);
+	free(stringCopy);
+#endif // SDL_VERSION_ATLEAST(2, 0, 0)
+	if (result == nullptr)
+		return nullptr;
+
+	// We need to copy the result, so that we can use SDL_free()
+	// on the string returned by SDL_iconv_string() and free()
+	// can then be used on the copyed and returned string.
+	// Sometimes free() and SDL_free() aren't compatible and
+	// using free() instead of SDL_free() can cause crashes.
+	size_t newLength = Common::Encoding::stringLength(result, to);
+	zeroBytes = 1;
+	if (Common::String(to).hasPrefixIgnoreCase("utf-16"))
+		zeroBytes = 2;
+	else if (Common::String(to).hasPrefixIgnoreCase("utf-32"))
+		zeroBytes = 4;
+	char *finalResult = (char *) malloc(newLength + zeroBytes);
+	if (!finalResult) {
+		warning("Could not allocate memory for encoding conversion");
+		SDL_free(result);
+		return nullptr;
+	}
+	memcpy(finalResult, result, newLength + zeroBytes);
+	SDL_free(result);
+	return finalResult;
+#else
+	return ModularBackend::convertEncoding(to, from, string, length);
+#endif // SDL_VERSION_ATLEAST(1, 2, 10)
+}
 

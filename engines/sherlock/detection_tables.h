@@ -40,6 +40,22 @@ static const SherlockGameDescription gameDescriptions[] = {
 	},
 
 	{
+		// Case of the Serrated Scalpel - French
+		// Provided by InsertDisk2 - Patch #11040
+		{
+			"scalpel",
+			0,
+			AD_ENTRY1s("talk.lib", "295ef96a50641d44f44c02c90cf7948e", 259541),
+			Common::FR_FRA,
+			Common::kPlatformDOS,
+			ADGF_UNSTABLE,
+			GUIO6(GUIO_NOSPEECH, GAMEOPTION_ORIGINAL_SAVES, GAMEOPTION_FADE_STYLE, GAMEOPTION_HELP_STYLE,
+				GAMEOPTION_PORTRAITS_ON, GAMEOPTION_WINDOW_STYLE)
+		},
+		GType_SerratedScalpel,
+	},
+
+	{
 		// Case of the Serrated Scalpel - German CD (from multilingual CD)
 		// Provided by m_kiewitz
 		{
@@ -105,6 +121,23 @@ static const SherlockGameDescription gameDescriptions[] = {
 			Common::ES_ESP,
 			Common::kPlatformDOS,
 			ADGF_NO_FLAGS,
+			GUIO6(GUIO_NOSPEECH, GAMEOPTION_ORIGINAL_SAVES, GAMEOPTION_FADE_STYLE, GAMEOPTION_HELP_STYLE,
+				GAMEOPTION_PORTRAITS_ON, GAMEOPTION_WINDOW_STYLE)
+		},
+		GType_SerratedScalpel,
+	},
+
+	{
+		// Case of the Serrated Scalpel - Italian fan translation
+		{
+			"scalpel",
+			0, {
+				{"talk.lib", 0, "1a547f96476a3a50cf6f0d599a4f5bcc", 247406},
+				{"music.lib", 0, "68ae2f7684ecf903bd60a00bb6bae195", 366465},
+				AD_LISTEND},
+			Common::IT_ITA,
+			Common::kPlatformDOS,
+			ADGF_UNSTABLE,
 			GUIO6(GUIO_NOSPEECH, GAMEOPTION_ORIGINAL_SAVES, GAMEOPTION_FADE_STYLE, GAMEOPTION_HELP_STYLE,
 				GAMEOPTION_PORTRAITS_ON, GAMEOPTION_WINDOW_STYLE)
 		},

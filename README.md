@@ -1,9 +1,9 @@
 ScummVM-kor with libretro core
 ==============================
 
->scummvm 2.1.1 (2020-10-8) libretro 포트 기반
->[한글판 ScummVM-kor 2.1.0](https://github.com/nuridol/scummvm-kor) 한국어 출력 기능 적용 (nuridol)
-> [ScummVM-kor with libretro core](https://github.com/swkim01/scummvm-kor) 시에라 게임 한국어 출력 기능 및 libretro core 빌드 가능 적용 (swkim01)
+>scummvm 2.1.1 (2020-10-8) libretro 포트 기반  
+>[한글판 ScummVM-kor 2.1.0](https://github.com/nuridol/scummvm-kor) 한국어 출력 기능 적용 (nuridol)  
+> [ScummVM-kor with libretro core](https://github.com/swkim01/scummvm-kor) 시에라 게임 한국어 출력 기능 및 libretro core 빌드 가능 적용 (swkim01)  
 
 # 컴파일 방법
 + 각 OS별 컴파일 방법은 http://wiki.scummvm.org/index.php/Compiling_ScummVM 를 참조하기 바랍니다.

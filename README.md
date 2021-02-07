@@ -110,6 +110,9 @@ http://wonst719.cafe24.com/zbxe/about
 ## ScummVM Kor. Patch v1.9.0
 http://github.com/nuridol/scummvm-kor
 
+## ScummVM Kor. libretro build
+https://github.com/swkim01/scummvm-kor
+
 ## 루카스아츠 게임 한글 패치
 http://wonst719.cafe24.com/zbxe/status
 

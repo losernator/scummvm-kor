@@ -17,6 +17,7 @@
 
 
 #include <ft2build.h>
+#include <freetype/ftadvanc.h>
 #include FT_FREETYPE_H
 #include "afglobal.h"
 #include "aftypes.h"
